@@ -1,0 +1,47 @@
+version: '3'
+
+vars:
+  SERVICE_NAME: requester
+  BINARY_PATH: ./bin/{{.SERVICE_NAME}}
+
+  # docker images
+  HADOLINT_IMAGE: hadolint/hadolint:2.12.0-alpine
+
+tasks:
+
+  default:
+    cmds:
+      - task -l
+    silent: true
+
+  generate:
+    desc: Generates golang code for migrations, mocks
+    cmds:
+      - go generate -x ./...
+
+  hadolint:
+    desc: Performs static analysis of dockerfile
+    cmds:
+      - docker run --rm -i {{.HADOLINT_IMAGE}} < Dockerfile
+
+  go-lint:
+    desc: Performs static analysis of Go source code
+    cmds:
+      - docker run --rm -v $(pwd):/app -w /app golangci/golangci-lint:v1.55.2 golangci-lint run -v ./...
+
+  analysis:
+    desc: Performs static analysis of code and configuration
+    deps: [hadolint, go-lint]
+
+  build:
+    desc: Builds the service
+    deps: [generate]
+    cmds:
+      - CGO_ENABLED=0 go build -a -o {{.BINARY_PATH}} .
+
+  test:
+    desc: Checks and tests the service
+    deps: [analysis]
+    cmds:
+      - cmd: go test -coverprofile=coverage.out ./...
+      - cmd: go tool cover -html=coverage.out
