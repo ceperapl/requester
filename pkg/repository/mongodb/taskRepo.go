@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ceperapl/requester/pkg/domain"
+	"github.com/ceperapl/requester/pkg/repository"
 	"github.com/ceperapl/requester/pkg/utils"
 	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/bson"
@@ -25,7 +26,7 @@ type taskRepo struct {
 	ctx        context.Context
 }
 
-func NewTaskRepo(uri string, database string, collection string) (*taskRepo, error) {
+func NewTaskRepo(uri string, database string, collection string) (repository.TaskRepository, error) {
 	// Connect to RabbitMQ with retry
 	var client *mongo.Client
 	if err := utils.Retry("connect to the MongoDB", retryInterval, retryMaxAttempts, func() (bool, error) {
@@ -98,8 +99,8 @@ func (t *taskRepo) GetTaskResult(id string) (*domain.TaskResult, error) {
 	return &result, nil
 }
 
-func (t *taskRepo) Close() error {
-	if err := t.client.Disconnect(t.ctx); err != nil {
+func (t *taskRepo) Close(ctx context.Context) error {
+	if err := t.client.Disconnect(ctx); err != nil {
 		return err
 	}
 

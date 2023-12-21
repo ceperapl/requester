@@ -1,17 +1,21 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	deliveryhttp "github.com/ceperapl/requester/pkg/delivery/http"
 	"github.com/ceperapl/requester/pkg/domain"
 	"github.com/ceperapl/requester/pkg/logging"
+	"github.com/ceperapl/requester/pkg/mq"
 	"github.com/ceperapl/requester/pkg/mq/rabbitmq"
+	"github.com/ceperapl/requester/pkg/repository"
 	"github.com/ceperapl/requester/pkg/repository/mongodb"
 	"github.com/ceperapl/requester/pkg/usecase"
 	"github.com/gorilla/mux"
@@ -32,7 +36,7 @@ func RunServer() error {
 	if err != nil {
 		return err
 	}
-	defer taskRepo.Close()
+	defer taskRepo.Close(context.Background())
 
 	log.Info().Msg("connecting to RabbitMQ...")
 
@@ -54,41 +58,25 @@ func RunServer() error {
 		return err
 	}
 
-	// Start the HTTP server
+	// Create a new HTTP server
 	httpServerAddr := fmt.Sprintf("0.0.0.0:%d", config.HTTPServer.Port)
+	httpSrv := &http.Server{
+		Addr:    httpServerAddr,
+		Handler: httpHandler,
+	}
+
+	// Start the HTTP server
 	go func() {
 		log.Info().Msg(fmt.Sprintf("run HTTP server on %s", httpServerAddr))
-		doneC <- http.ListenAndServe(httpServerAddr, httpHandler)
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			doneC <- err
+		}
 	}()
 
 	log.Info().Msg(fmt.Sprintf("start task processing; workers = %d", config.WorkersCount))
-	for i := 0; i < config.WorkersCount; i++ {
-		go func() {
-			doneC <- mq.Consume(func(msg string) error {
-				var task domain.Task
-				if err := json.Unmarshal([]byte(msg), &task); err != nil {
-					return err
-				}
-				if err := taskService.ProcessTask(&task); err != nil {
-					return err
-				}
-				return nil
-			})
-		}()
-	}
+	runWorkers(config.WorkersCount, doneC, mq, taskService)
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT)
-	go func() {
-		<-sigChan
-
-		log.Info().Msg("graceful shutdown")
-		os.Exit(0)
-	}()
+	go gracefulShutdown(httpSrv, mq, taskRepo)
 
 	// waiting for the errors from servers
 	if err := <-doneC; err != nil {
@@ -96,4 +84,57 @@ func RunServer() error {
 	}
 
 	return nil
+}
+
+func runWorkers(workersCount int, doneC chan<- error, mq mq.WorkQueue, taskService usecase.TaskService) {
+	for i := 1; i <= workersCount; i++ {
+		go func(workerNumber int) {
+			err := mq.Consume(func(msg string) {
+				log.Debug().Msg(fmt.Sprintf("Worker #%d/%d is processing task: %s", workerNumber, workersCount, msg))
+				var task domain.Task
+				json.Unmarshal([]byte(msg), &task)
+				if err := taskService.ProcessTask(&task); err != nil {
+					log.Debug().Msg(fmt.Sprintf("Worker #%d/%d failed to process task: %s", workerNumber, workersCount, msg))
+					return
+				}
+				log.Debug().Msg(fmt.Sprintf("Worker #%d/%d successfully processed task: %s", workerNumber, workersCount, msg))
+			})
+			if err != nil {
+				doneC <- err
+			}
+		}(i)
+	}
+}
+
+func gracefulShutdown(httpServer *http.Server, mq mq.WorkQueue, taskRepo repository.TaskRepository) {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan,
+		os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		log.Info().Msg("graceful shutdown")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		// shutdown http server
+		if err := httpServer.Shutdown(ctx); err != nil {
+			log.Info().Msg(fmt.Sprintf("HTTP Server shutdown failed: %v\n", err))
+		}
+		log.Info().Msg("HTTP Server shutdown gracefully")
+
+		// disconnect from RabbitMQ
+		if err := mq.Close(); err != nil {
+			log.Info().Msg(fmt.Sprintf("failed to disconnect from RabbitMQ: %v\n", err))
+		}
+		log.Info().Msg("successfully disconnected from RabbitMQ")
+
+		// disconnect from MongoDB
+		if err := taskRepo.Close(ctx); err != nil {
+			log.Info().Msg(fmt.Sprintf("failed to disconnect from MongoDB: %v\n", err))
+		}
+		log.Info().Msg("successfully disconnected from MongoDB")
+
+		os.Exit(0)
+	}()
 }

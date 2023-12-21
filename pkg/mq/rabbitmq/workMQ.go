@@ -26,7 +26,7 @@ func New(uri string, queueName string) (mq.WorkQueue, error) {
 		log.Info().Msg(fmt.Sprintf("connect to RabbitMQ; uri: %q; queue: %q", uri, queueName))
 
 		var err error
-		conn, err := amqp.Dial(uri)
+		conn, err = amqp.Dial(uri)
 		if err != nil {
 			return false, fmt.Errorf("connect to RabbitMQ: %w", err)
 		}
@@ -100,9 +100,7 @@ func (w *workQueue) Consume(doFunc mq.ProcessingFunc) error {
 	}
 
 	for d := range msgs {
-		if err := doFunc(string(d.Body)); err != nil {
-			return fmt.Errorf("processing message: %w", err)
-		}
+		doFunc(string(d.Body))
 		d.Ack(false)
 	}
 

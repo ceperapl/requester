@@ -7,7 +7,6 @@ import (
 	"github.com/ceperapl/requester/pkg/http"
 	"github.com/ceperapl/requester/pkg/mq"
 	"github.com/ceperapl/requester/pkg/repository"
-	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -61,13 +60,6 @@ func (t *taskService) GetTaskResult(id string) (*domain.TaskResult, error) {
 }
 
 func (t *taskService) ProcessTask(task *domain.Task) error {
-	taskJson, err := json.Marshal(task)
-	if err != nil {
-		return err
-	}
-
-	log.Debug().Msg(string(taskJson))
-
 	taskResult := domain.TaskResult{
 		TaskID: task.ID,
 		Status: domain.TaskInProgress,

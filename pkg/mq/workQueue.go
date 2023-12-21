@@ -2,7 +2,7 @@ package mq
 
 import "io"
 
-type ProcessingFunc func(message string) error
+type ProcessingFunc func(message string)
 
 type WorkQueue interface {
 	io.Closer

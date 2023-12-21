@@ -26,8 +26,8 @@ func NewTaskHandler(mux *mux.Router, taskService usecase.TaskService) (*mux.Rout
 
 	subRouter := mux.PathPrefix("/api/v1").Subrouter()
 
-	subRouter.HandleFunc("/task", handler.CreateTask).Methods(http.MethodPost)
-	subRouter.HandleFunc("/task/{id}", handler.GetTaskResult).Methods(http.MethodGet)
+	subRouter.Handle("/task", logEndpoint(http.HandlerFunc(handler.CreateTask))).Methods(http.MethodPost)
+	subRouter.Handle("/task/{id}", logEndpoint(http.HandlerFunc(handler.GetTaskResult))).Methods(http.MethodGet)
 
 	return subRouter, nil
 }
