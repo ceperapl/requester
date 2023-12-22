@@ -1,4 +1,4 @@
-package validator
+package validator_test
 
 // import (
 // 	"testing"

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,22 +33,22 @@ type Response struct {
 	Body          string
 }
 
-type client struct {
-	client *http.Client
+type Client struct {
+	Client *http.Client
 }
 
-func NewClient() Requester {
+func NewClient() *Client {
 	httpClient := &http.Client{
 		Timeout: reqTimeout,
 	}
 
-	return &client{client: httpClient}
+	return &Client{Client: httpClient}
 }
 
-func (c *client) DoRequest(req Request) (*Response, error) {
+func (c *Client) DoRequest(ctx context.Context, req Request) (*Response, error) {
 	body := strings.NewReader(req.Body)
 	// Create a new http.Request with the given method, url, body and headers
-	request, err := http.NewRequest(req.Method, req.URL, body)
+	request, err := http.NewRequestWithContext(ctx, req.Method, req.URL, body)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -57,7 +58,7 @@ func (c *client) DoRequest(req Request) (*Response, error) {
 		}
 	}
 	// Send the request and get the response
-	resp, err := c.client.Do(request)
+	resp, err := c.Client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
 	}

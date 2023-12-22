@@ -48,7 +48,7 @@ func RunServer() error {
 	if err != nil {
 		return fmt.Errorf("couldn't connect to RabbitMQ: %w", err)
 	}
-	// nolint: errcheck
+	//nolint: errcheck
 	defer rabbitmq.CloseConnection(rabbitMQConn, rabbitMQChannel)
 	workQueue, err := rabbitmq.New(rabbitMQConn, rabbitMQChannel, config.RabbitMQ.QueueName)
 	if err != nil {
@@ -97,16 +97,17 @@ func RunServer() error {
 	return nil
 }
 
-func runWorkers(workersCount int, doneC chan<- error, mq mq.WorkQueue, taskService usecase.TaskService) {
+func runWorkers(workersCount int, doneC chan<- error, mq mq.WorkQueuer, taskService usecase.TaskUsecaser) {
 	for i := 1; i <= workersCount; i++ {
 		go func(workerNumber int) {
 			err := mq.Consume(context.Background(), func(msg string) {
 				log.Debug().Msg(fmt.Sprintf("Worker #%d/%d is processing task: %s", workerNumber, workersCount, msg))
 				var task domain.Task
-				// nolint: errcheck
+				//nolint: errcheck
 				json.Unmarshal([]byte(msg), &task)
 				if err := taskService.ProcessTask(context.Background(), &task); err != nil {
 					log.Debug().Msg(fmt.Sprintf("Worker #%d/%d failed to process task: %s", workerNumber, workersCount, msg))
+
 					return
 				}
 				log.Debug().Msg(fmt.Sprintf("Worker #%d/%d successfully processed task: %s", workerNumber, workersCount, msg))

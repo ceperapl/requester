@@ -6,7 +6,7 @@ import (
 
 type ProcessingFunc func(message string)
 
-type WorkQueue interface {
+type WorkQueuer interface {
 	Publish(ctx context.Context, message string) error
 	Consume(ctx context.Context, doFunc ProcessingFunc) error
 }

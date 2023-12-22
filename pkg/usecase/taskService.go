@@ -18,25 +18,25 @@ var (
 	ErrProcessTask   = errors.New("process task failed")
 )
 
-type TaskService interface {
+type TaskUsecaser interface {
 	CreateTask(ctx context.Context, task *domain.Task) (string, error)
 	GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error)
 	ProcessTask(ctx context.Context, task *domain.Task) error
 }
 
-func NewTaskService(repos repository.TaskRepository, mq mq.WorkQueue) (TaskService, error) {
-	return &taskService{
+func NewTaskService(repos repository.TaskRepository, mq mq.WorkQueuer) (*TaskService, error) {
+	return &TaskService{
 		repos:     repos,
 		workQueue: mq,
 	}, nil
 }
 
-type taskService struct {
+type TaskService struct {
 	repos     repository.TaskRepository
-	workQueue mq.WorkQueue
+	workQueue mq.WorkQueuer
 }
 
-func (t *taskService) CreateTask(ctx context.Context, task *domain.Task) (string, error) {
+func (t *TaskService) CreateTask(ctx context.Context, task *domain.Task) (string, error) {
 	task.ID = uuid.NewV4().String()
 
 	taskResult := domain.TaskResult{
@@ -59,18 +59,18 @@ func (t *taskService) CreateTask(ctx context.Context, task *domain.Task) (string
 	return task.ID, nil
 }
 
-func (t *taskService) GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error) {
+func (t *TaskService) GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error) {
 	// get task result from MongoDB
 	taskResult, err := t.repos.GetTaskResult(ctx, id)
 	if err != nil {
-		// nolint: wrapcheck
+		//nolint: wrapcheck
 		return nil, err
 	}
 
 	return taskResult, nil
 }
 
-func (t *taskService) ProcessTask(ctx context.Context, task *domain.Task) error {
+func (t *TaskService) ProcessTask(ctx context.Context, task *domain.Task) error {
 	taskResult := domain.TaskResult{
 		TaskID: task.ID,
 		Status: domain.TaskInProgress,
@@ -88,13 +88,15 @@ func (t *taskService) ProcessTask(ctx context.Context, task *domain.Task) error 
 		URL:     task.URL,
 		Headers: task.Headers,
 	}
-	resp, err := httpClient.DoRequest(req)
+	resp, err := httpClient.DoRequest(ctx, req)
 	if err != nil {
 		taskResult.Status = domain.TaskError
+		taskResult.Error = err.Error()
 		// update task result state to "error" in MongoDB
 		if updTaskErr := t.repos.UpdateTaskResult(ctx, &taskResult); updTaskErr != nil {
 			return errors.Join(ErrProcessTask, updTaskErr)
 		}
+
 		return errors.Join(ErrProcessTask, err)
 	}
 
@@ -102,7 +104,7 @@ func (t *taskService) ProcessTask(ctx context.Context, task *domain.Task) error 
 	taskResult.HTTPStatusCode = &resp.StatusCode
 	taskResult.Headers = resp.Headers
 	taskResult.ContentLength = resp.ContentLength
-	// TODO: update task result in MongoDB
+	// update task result in MongoDB
 	if err := t.repos.UpdateTaskResult(ctx, &taskResult); err != nil {
 		return errors.Join(ErrProcessTask, err)
 	}

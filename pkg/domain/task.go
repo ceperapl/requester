@@ -22,4 +22,5 @@ type TaskResult struct {
 	HTTPStatusCode *int                `json:"httpStatusCode,omitempty"`
 	Headers        map[string][]string `json:"headers,omitempty"`
 	ContentLength  int64               `json:"length,omitempty"`
+	Error          string              `json:"error,omitempty"`
 }

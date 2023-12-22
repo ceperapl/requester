@@ -21,7 +21,7 @@ var (
 
 type handlerFuncWithError func(http.ResponseWriter, *http.Request) error
 
-func NewTaskHandler(mux *mux.Router, taskService usecase.TaskService) (*mux.Router, error) {
+func NewTaskHandler(mux *mux.Router, taskService usecase.TaskUsecaser) (*mux.Router, error) {
 	valid, err := validator.New(
 		validator.WithJSONNamesForStructFields(),
 	)
@@ -31,7 +31,7 @@ func NewTaskHandler(mux *mux.Router, taskService usecase.TaskService) (*mux.Rout
 
 	handler := &taskHandler{
 		usecase:   taskService,
-		validator: valid,
+		validator: *valid,
 	}
 
 	subRouter := mux.PathPrefix("/api/v1").Subrouter()
@@ -44,26 +44,24 @@ func NewTaskHandler(mux *mux.Router, taskService usecase.TaskService) (*mux.Rout
 }
 
 type taskHandler struct {
-	usecase   usecase.TaskService
-	validator validator.Validator
+	usecase   usecase.TaskUsecaser
+	validator validator.Validation
 }
 
 func (t *taskHandler) CreateTaskEndpoint(ctx context.Context) handlerFuncWithError {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		task, err := t.decodeCreateTaskEndpointReq(r)
 		if err != nil {
-			// nolint: wrapcheck
 			return err
 		}
 
 		taskID, err := t.usecase.CreateTask(ctx, task)
 		if err != nil {
-			// nolint: wrapcheck
+			//nolint: wrapcheck
 			return err
 		}
 
 		if err := t.encodeCreateTaskEndpointResp(w, taskID); err != nil {
-			// nolint: wrapcheck
 			return err
 		}
 
@@ -79,7 +77,7 @@ func (t *taskHandler) decodeCreateTaskEndpointReq(req *http.Request) (*domain.Ta
 	defer req.Body.Close()
 
 	if err := t.validator.ValidateStruct(task); err != nil {
-		// nolint: wrapcheck
+		//nolint: wrapcheck
 		return nil, err
 	}
 
@@ -99,18 +97,16 @@ func (t *taskHandler) GetTaskResultEndpoint(ctx context.Context) handlerFuncWith
 	return func(w http.ResponseWriter, r *http.Request) error {
 		taskID, err := t.decodeGetTaskResultEndpointReq(r)
 		if err != nil {
-			// nolint: wrapcheck
 			return err
 		}
 
 		taskResult, err := t.usecase.GetTaskResult(ctx, taskID)
 		if err != nil {
-			// nolint: wrapcheck
+			//nolint: wrapcheck
 			return err
 		}
 
 		if err := t.encodeGetTaskResultEndpointResp(w, taskResult); err != nil {
-			// nolint: wrapcheck
 			return err
 		}
 
@@ -122,7 +118,7 @@ func (t *taskHandler) decodeGetTaskResultEndpointReq(req *http.Request) (string,
 	id := mux.Vars(req)["id"]
 
 	if err := t.validator.ValidateVar(id, "uuid4"); err != nil {
-		// nolint: wrapcheck
+		//nolint: wrapcheck
 		return "", err
 	}
 

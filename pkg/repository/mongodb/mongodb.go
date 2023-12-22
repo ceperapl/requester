@@ -45,6 +45,7 @@ func NewClient(uri string) (*mongo.Client, error) {
 		if err := client.Ping(ctx, nil); err != nil {
 			return false, errors.Join(ErrCreateClient, err)
 		}
+
 		return true, nil
 	}); err != nil {
 		return nil, errors.Join(ErrCreateClient, err)

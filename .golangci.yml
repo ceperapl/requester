@@ -1,41 +1,27 @@
-# This is our linters configuration
-# We use https://github.com/golangci/golangci-lint because it allows us to run multiple linters at the same time
-
 run:
   timeout: 5m
-  skip-dirs:
-    - stub
 
 linters:
   enable-all: true
   disable:
-    - maligned
-    - wsl
-    - whitespace
-    - godox
-    - godot
-    - interfacer
-    - nolintlint
-    - noctx
-    - gofumpt
-    - exhaustive
-    - gci
-    - nlreturn
-    - exhaustivestruct
-    - forbidigo
-    - paralleltest
-    - cyclop
-    - ifshort
-    - nilerr
-    - thelper
-    - tagliatelle
-    - golint # deprecated in favour of revive
-    - scopelint # deprecated in favour of exportloopref
-    - varnamelen
-    - ireturn
-    - exhaustruct
-    - testpackage
+    - maligned # deprecated
+    - nosnakecase # deprecated
+    - interfacer # deprecated
+    - exhaustivestruct # deprecated
+    - ifshort # deprecated
+    - golint # deprecated
+    - scopelint # deprecated
+    - structcheck # deprecated
+    - deadcode # deprecated
+    - varcheck # deprecated
     - depguard
+    - exhaustruct
+    - wsl
+    - varnamelen
+    - gofumpt
+    - gci
+    - gofmt
+    - goimports
 linters-settings:
   funlen:
     lines: 100

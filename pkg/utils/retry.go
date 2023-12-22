@@ -11,7 +11,7 @@ var (
 
 type RetryFunc func(attempt int) (stop bool, err error)
 
-// Retry runs function until true
+// Retry runs function until true.
 func Retry(interval time.Duration, maxAttempts int, doFunc RetryFunc) error {
 	var err error
 	ticker := time.NewTicker(interval)
@@ -28,5 +28,6 @@ func Retry(interval time.Duration, maxAttempts int, doFunc RetryFunc) error {
 		}
 	}
 	ticker.Stop()
+
 	return nil
 }

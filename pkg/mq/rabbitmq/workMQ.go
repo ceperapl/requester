@@ -15,7 +15,7 @@ var (
 	ErrCloseWorkQueue  = errors.New("couldn't close work queue")
 )
 
-func New(conn *amqp.Connection, channel *amqp.Channel, queueName string) (mq.WorkQueue, error) {
+func New(conn *amqp.Connection, channel *amqp.Channel, queueName string) (*WorkQueue, error) {
 	queue, err := channel.QueueDeclare(
 		queueName, // name
 		true,      // durable
@@ -27,20 +27,21 @@ func New(conn *amqp.Connection, channel *amqp.Channel, queueName string) (mq.Wor
 	if err != nil {
 		return nil, errors.Join(ErrCreateWorkQueue, err)
 	}
-	return &workQueue{
+
+	return &WorkQueue{
 		conn:    conn,
 		channel: channel,
 		queue:   &queue,
 	}, nil
 }
 
-type workQueue struct {
+type WorkQueue struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
 	queue   *amqp.Queue
 }
 
-func (w *workQueue) Publish(ctx context.Context, message string) error {
+func (w *WorkQueue) Publish(ctx context.Context, message string) error {
 	err := w.channel.PublishWithContext(ctx,
 		"",           // exchange
 		w.queue.Name, // routing key
@@ -59,7 +60,7 @@ func (w *workQueue) Publish(ctx context.Context, message string) error {
 	return nil
 }
 
-func (w *workQueue) Consume(ctx context.Context, doFunc mq.ProcessingFunc) error {
+func (w *WorkQueue) Consume(ctx context.Context, doFunc mq.ProcessingFunc) error {
 	msgs, err := w.channel.ConsumeWithContext(ctx,
 		w.queue.Name, // queue
 		"",           // consumer

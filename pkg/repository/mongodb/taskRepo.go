@@ -16,21 +16,21 @@ var (
 	ErrGetTaskResult    = errors.New("couldn't get task result")
 )
 
-type taskRepo struct {
+type TaskRepo struct {
 	client     *mongo.Client
 	database   string
 	collection string
 }
 
-func NewTaskRepo(client *mongo.Client, database string, collection string) repository.TaskRepository {
-	return &taskRepo{
+func NewTaskRepo(client *mongo.Client, database string, collection string) *TaskRepo {
+	return &TaskRepo{
 		client:     client,
 		database:   database,
 		collection: collection,
 	}
 }
 
-func (t *taskRepo) CreateTaskResult(ctx context.Context, taskResult *domain.TaskResult) error {
+func (t *TaskRepo) CreateTaskResult(ctx context.Context, taskResult *domain.TaskResult) error {
 	collection := t.client.Database(t.database).Collection(t.collection)
 
 	_, err := collection.InsertOne(ctx, taskResult)
@@ -41,7 +41,7 @@ func (t *taskRepo) CreateTaskResult(ctx context.Context, taskResult *domain.Task
 	return nil
 }
 
-func (t *taskRepo) UpdateTaskResult(ctx context.Context, taskResult *domain.TaskResult) error {
+func (t *TaskRepo) UpdateTaskResult(ctx context.Context, taskResult *domain.TaskResult) error {
 	collection := t.client.Database(t.database).Collection(t.collection)
 
 	filter := bson.M{"taskid": taskResult.TaskID}
@@ -53,7 +53,7 @@ func (t *taskRepo) UpdateTaskResult(ctx context.Context, taskResult *domain.Task
 	return nil
 }
 
-func (t *taskRepo) GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error) {
+func (t *TaskRepo) GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error) {
 	collection := t.client.Database(t.database).Collection(t.collection)
 
 	filter := bson.M{"taskid": id}
@@ -65,6 +65,7 @@ func (t *taskRepo) GetTaskResult(ctx context.Context, id string) (*domain.TaskRe
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, errors.Join(repository.ErrTaskNotFound, err)
 		}
+
 		return nil, errors.Join(ErrGetTaskResult, err)
 	}
 
