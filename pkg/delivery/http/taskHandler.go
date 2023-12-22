@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,79 +9,131 @@ import (
 
 	"github.com/ceperapl/requester/pkg/domain"
 	"github.com/ceperapl/requester/pkg/usecase"
-	"github.com/ceperapl/requester/pkg/validation"
+	"github.com/ceperapl/requester/pkg/validator"
 	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
+var (
+	ErrCreateTaskHandler = errors.New("failed to create task handler")
+	ErrJSONUnmarshal     = errors.New("couldn't unmarshal json")
+	ErrJSONMarshal       = errors.New("couldn't marshal json")
+)
+
+type handlerFuncWithError func(http.ResponseWriter, *http.Request) error
+
 func NewTaskHandler(mux *mux.Router, taskService usecase.TaskService) (*mux.Router, error) {
-	validation, err := validation.New(validation.WithJSONNamesForStructFields(), validation.WithPredefinedErrorMessages())
+	valid, err := validator.New(
+		validator.WithJSONNamesForStructFields(),
+	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("couldn't create validator: %w", err)
 	}
 
 	handler := &taskHandler{
-		usecase:    taskService,
-		validation: validation,
+		usecase:   taskService,
+		validator: valid,
 	}
 
 	subRouter := mux.PathPrefix("/api/v1").Subrouter()
+	ctx := context.Background()
 
-	subRouter.Handle("/task", logEndpoint(http.HandlerFunc(handler.CreateTask))).Methods(http.MethodPost)
-	subRouter.Handle("/task/{id}", logEndpoint(http.HandlerFunc(handler.GetTaskResult))).Methods(http.MethodGet)
+	subRouter.Handle("/task", logEndpoint(errorHandler(handler.CreateTaskEndpoint(ctx)))).Methods(http.MethodPost)
+	subRouter.Handle("/task/{id}", logEndpoint(errorHandler(handler.GetTaskResultEndpoint(ctx)))).Methods(http.MethodGet)
 
 	return subRouter, nil
 }
 
 type taskHandler struct {
-	usecase    usecase.TaskService
-	validation validation.Validation
+	usecase   usecase.TaskService
+	validator validator.Validator
 }
 
-func (t *taskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
-	var task *domain.Task
-	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
-	// TODO: task validation
-
-	taskId, err := t.usecase.CreateTask(task)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	taskJson, err := json.Marshal(domain.Task{ID: taskId})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, string(taskJson))
-}
-
-func (t *taskHandler) GetTaskResult(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-
-	taskResult, err := t.usecase.GetTaskResult(id)
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
+func (t *taskHandler) CreateTaskEndpoint(ctx context.Context) handlerFuncWithError {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		task, err := t.decodeCreateTaskEndpointReq(r)
+		if err != nil {
+			// nolint: wrapcheck
+			return err
 		}
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+
+		taskID, err := t.usecase.CreateTask(ctx, task)
+		if err != nil {
+			// nolint: wrapcheck
+			return err
+		}
+
+		if err := t.encodeCreateTaskEndpointResp(w, taskID); err != nil {
+			// nolint: wrapcheck
+			return err
+		}
+
+		return nil
+	}
+}
+
+func (t *taskHandler) decodeCreateTaskEndpointReq(req *http.Request) (*domain.Task, error) {
+	var task *domain.Task
+	if err := json.NewDecoder(req.Body).Decode(&task); err != nil {
+		return nil, errors.Join(ErrJSONUnmarshal, err)
+	}
+	defer req.Body.Close()
+
+	if err := t.validator.ValidateStruct(task); err != nil {
+		// nolint: wrapcheck
+		return nil, err
 	}
 
-	taskResultJson, err := json.Marshal(taskResult)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	return task, nil
+}
 
+func (t *taskHandler) encodeCreateTaskEndpointResp(w http.ResponseWriter, taskID string) error {
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, string(taskResultJson))
+	if err := json.NewEncoder(w).Encode(domain.Task{ID: taskID}); err != nil {
+		return errors.Join(ErrJSONMarshal, err)
+	}
+
+	return nil
+}
+
+func (t *taskHandler) GetTaskResultEndpoint(ctx context.Context) handlerFuncWithError {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		taskID, err := t.decodeGetTaskResultEndpointReq(r)
+		if err != nil {
+			// nolint: wrapcheck
+			return err
+		}
+
+		taskResult, err := t.usecase.GetTaskResult(ctx, taskID)
+		if err != nil {
+			// nolint: wrapcheck
+			return err
+		}
+
+		if err := t.encodeGetTaskResultEndpointResp(w, taskResult); err != nil {
+			// nolint: wrapcheck
+			return err
+		}
+
+		return nil
+	}
+}
+
+func (t *taskHandler) decodeGetTaskResultEndpointReq(req *http.Request) (string, error) {
+	id := mux.Vars(req)["id"]
+
+	if err := t.validator.ValidateVar(id, "uuid4"); err != nil {
+		// nolint: wrapcheck
+		return "", err
+	}
+
+	return id, nil
+}
+
+func (t *taskHandler) encodeGetTaskResultEndpointResp(w http.ResponseWriter, taskResult *domain.TaskResult) error {
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(taskResult); err != nil {
+		return errors.Join(ErrJSONMarshal, err)
+	}
+
+	return nil
 }

@@ -1,11 +1,22 @@
 package http
 
 import (
-	"io/ioutil"
+	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 )
+
+const (
+	reqTimeout = 10 * time.Second
+
+	Err
+)
+
+type Requester interface {
+	DoRequest(req Request) (*Response, error)
+}
 
 type Request struct {
 	Method  string
@@ -25,9 +36,9 @@ type client struct {
 	client *http.Client
 }
 
-func NewClient() *client {
+func NewClient() Requester {
 	httpClient := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: reqTimeout,
 	}
 
 	return &client{client: httpClient}
@@ -38,7 +49,7 @@ func (c *client) DoRequest(req Request) (*Response, error) {
 	// Create a new http.Request with the given method, url, body and headers
 	request, err := http.NewRequest(req.Method, req.URL, body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 	for key, values := range req.Headers {
 		for _, value := range values {
@@ -48,13 +59,13 @@ func (c *client) DoRequest(req Request) (*Response, error) {
 	// Send the request and get the response
 	resp, err := c.client.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("do request: %w", err)
 	}
 	// Read and close the response body
 	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read from http response body: %w", err)
 	}
 
 	respHeaders := make(map[string][]string)

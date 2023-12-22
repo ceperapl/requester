@@ -2,53 +2,30 @@ package rabbitmq
 
 import (
 	"context"
-	"fmt"
-	"time"
+	"errors"
 
 	"github.com/ceperapl/requester/pkg/mq"
-	"github.com/ceperapl/requester/pkg/utils"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/rs/zerolog/log"
 )
 
-const (
-	retryInterval    = time.Second
-	retryMaxAttempts = 30
+var (
+	ErrCreateWorkQueue = errors.New("couldn't create work queue")
+	ErrPublishMsg      = errors.New("couldn't publish message")
+	ErrConsumeMsgs     = errors.New("couldn't consume messages")
+	ErrCloseWorkQueue  = errors.New("couldn't close work queue")
 )
 
-func New(uri string, queueName string) (mq.WorkQueue, error) {
-	// Connect to RabbitMQ with retry
-	var conn *amqp.Connection
-	var channel *amqp.Channel
-	var queue amqp.Queue
-
-	if err := utils.Retry("connect to the RabbitMQ", retryInterval, retryMaxAttempts, func() (bool, error) {
-		log.Info().Msg(fmt.Sprintf("connect to RabbitMQ; uri: %q; queue: %q", uri, queueName))
-
-		var err error
-		conn, err = amqp.Dial(uri)
-		if err != nil {
-			return false, fmt.Errorf("connect to RabbitMQ: %w", err)
-		}
-
-		channel, err = conn.Channel()
-		if err != nil {
-			return false, fmt.Errorf("open a channel: %w", err)
-		}
-
-		if queue, err = channel.QueueDeclare(
-			queueName, // name
-			true,      // durable
-			false,     // delete when unused
-			false,     // exclusive
-			false,     // no-wait
-			nil,       // arguments
-		); err != nil {
-			return false, fmt.Errorf("declare a queue: %w", err)
-		}
-		return true, nil
-	}); err != nil {
-		return nil, fmt.Errorf("retry connecting to the RabbitMQ: %w", err)
+func New(conn *amqp.Connection, channel *amqp.Channel, queueName string) (mq.WorkQueue, error) {
+	queue, err := channel.QueueDeclare(
+		queueName, // name
+		true,      // durable
+		false,     // delete when unused
+		false,     // exclusive
+		false,     // no-wait
+		nil,       // arguments
+	)
+	if err != nil {
+		return nil, errors.Join(ErrCreateWorkQueue, err)
 	}
 	return &workQueue{
 		conn:    conn,
@@ -63,10 +40,7 @@ type workQueue struct {
 	queue   *amqp.Queue
 }
 
-func (w *workQueue) Publish(message string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
+func (w *workQueue) Publish(ctx context.Context, message string) error {
 	err := w.channel.PublishWithContext(ctx,
 		"",           // exchange
 		w.queue.Name, // routing key
@@ -79,14 +53,14 @@ func (w *workQueue) Publish(message string) error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("publish a message: %w", err)
+		return errors.Join(ErrPublishMsg, err)
 	}
 
 	return nil
 }
 
-func (w *workQueue) Consume(doFunc mq.ProcessingFunc) error {
-	msgs, err := w.channel.Consume(
+func (w *workQueue) Consume(ctx context.Context, doFunc mq.ProcessingFunc) error {
+	msgs, err := w.channel.ConsumeWithContext(ctx,
 		w.queue.Name, // queue
 		"",           // consumer
 		false,        // auto-ack
@@ -96,23 +70,14 @@ func (w *workQueue) Consume(doFunc mq.ProcessingFunc) error {
 		nil,          // args
 	)
 	if err != nil {
-		return fmt.Errorf("register a consumer: %w", err)
+		return errors.Join(ErrConsumeMsgs, err)
 	}
 
 	for d := range msgs {
 		doFunc(string(d.Body))
-		d.Ack(false)
-	}
-
-	return nil
-}
-
-func (w *workQueue) Close() error {
-	if err := w.channel.Close(); err != nil {
-		return fmt.Errorf("close RabbitMQ channel: %w", err)
-	}
-	if err := w.conn.Close(); err != nil {
-		return fmt.Errorf("close RabbitMQ connection: %w", err)
+		if err := d.Ack(false); err != nil {
+			return errors.Join(ErrConsumeMsgs, err)
+		}
 	}
 
 	return nil

@@ -1,7 +1,9 @@
 package usecase
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/ceperapl/requester/pkg/domain"
 	"github.com/ceperapl/requester/pkg/http"
@@ -10,10 +12,16 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+var (
+	ErrCreateTask    = errors.New("create task failed")
+	ErrGetTaskResult = errors.New("get task result failed")
+	ErrProcessTask   = errors.New("process task failed")
+)
+
 type TaskService interface {
-	CreateTask(task *domain.Task) (string, error)
-	GetTaskResult(id string) (*domain.TaskResult, error)
-	ProcessTask(task *domain.Task) error
+	CreateTask(ctx context.Context, task *domain.Task) (string, error)
+	GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error)
+	ProcessTask(ctx context.Context, task *domain.Task) error
 }
 
 func NewTaskService(repos repository.TaskRepository, mq mq.WorkQueue) (TaskService, error) {
@@ -28,7 +36,7 @@ type taskService struct {
 	workQueue mq.WorkQueue
 }
 
-func (t *taskService) CreateTask(task *domain.Task) (string, error) {
+func (t *taskService) CreateTask(ctx context.Context, task *domain.Task) (string, error) {
 	task.ID = uuid.NewV4().String()
 
 	taskResult := domain.TaskResult{
@@ -36,37 +44,42 @@ func (t *taskService) CreateTask(task *domain.Task) (string, error) {
 		Status: domain.TaskNew,
 	}
 
-	if err := t.repos.CreateTaskResult(&taskResult); err != nil {
-		return "", err
+	if err := t.repos.CreateTaskResult(ctx, &taskResult); err != nil {
+		return "", errors.Join(ErrCreateTask, err)
 	}
 
-	taskJson, err := json.Marshal(task)
+	taskJSON, err := json.Marshal(task)
 	if err != nil {
-		return "", err
+		return "", errors.Join(ErrCreateTask, err)
 	}
-	t.workQueue.Publish(string(taskJson))
+	if err := t.workQueue.Publish(ctx, string(taskJSON)); err != nil {
+		return "", errors.Join(ErrCreateTask, err)
+	}
 
 	return task.ID, nil
 }
 
-func (t *taskService) GetTaskResult(id string) (*domain.TaskResult, error) {
+func (t *taskService) GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error) {
 	// get task result from MongoDB
-	taskResult, err := t.repos.GetTaskResult(id)
+	taskResult, err := t.repos.GetTaskResult(ctx, id)
 	if err != nil {
+		// nolint: wrapcheck
 		return nil, err
 	}
 
 	return taskResult, nil
 }
 
-func (t *taskService) ProcessTask(task *domain.Task) error {
+func (t *taskService) ProcessTask(ctx context.Context, task *domain.Task) error {
 	taskResult := domain.TaskResult{
 		TaskID: task.ID,
 		Status: domain.TaskInProgress,
 	}
 
 	// update task result state to "in progress" in MongoDB
-	t.repos.UpdateTaskResult(&taskResult)
+	if err := t.repos.UpdateTaskResult(ctx, &taskResult); err != nil {
+		return errors.Join(ErrProcessTask, err)
+	}
 
 	// perform task request
 	httpClient := http.NewClient()
@@ -79,8 +92,10 @@ func (t *taskService) ProcessTask(task *domain.Task) error {
 	if err != nil {
 		taskResult.Status = domain.TaskError
 		// update task result state to "error" in MongoDB
-		t.repos.UpdateTaskResult(&taskResult)
-		return err
+		if updTaskErr := t.repos.UpdateTaskResult(ctx, &taskResult); updTaskErr != nil {
+			return errors.Join(ErrProcessTask, updTaskErr)
+		}
+		return errors.Join(ErrProcessTask, err)
 	}
 
 	taskResult.Status = domain.TaskDone
@@ -88,7 +103,9 @@ func (t *taskService) ProcessTask(task *domain.Task) error {
 	taskResult.Headers = resp.Headers
 	taskResult.ContentLength = resp.ContentLength
 	// TODO: update task result in MongoDB
-	t.repos.UpdateTaskResult(&taskResult)
+	if err := t.repos.UpdateTaskResult(ctx, &taskResult); err != nil {
+		return errors.Join(ErrProcessTask, err)
+	}
 
 	return nil
 }

@@ -2,89 +2,58 @@ package mongodb
 
 import (
 	"context"
-	"fmt"
-	"time"
+	"errors"
 
 	"github.com/ceperapl/requester/pkg/domain"
 	"github.com/ceperapl/requester/pkg/repository"
-	"github.com/ceperapl/requester/pkg/utils"
-	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const (
-	retryInterval    = time.Second
-	retryMaxAttempts = 30
+var (
+	ErrCreateTaskResult = errors.New("couldn't create task result")
+	ErrUpdateTaskResult = errors.New("couldn't update task result")
+	ErrGetTaskResult    = errors.New("couldn't get task result")
 )
 
 type taskRepo struct {
 	client     *mongo.Client
 	database   string
 	collection string
-	ctx        context.Context
 }
 
-func NewTaskRepo(uri string, database string, collection string) (repository.TaskRepository, error) {
-	// Connect to RabbitMQ with retry
-	var client *mongo.Client
-	if err := utils.Retry("connect to the MongoDB", retryInterval, retryMaxAttempts, func() (bool, error) {
-		log.Info().Msg(fmt.Sprintf("connect to MongoDB; uri: %q", uri))
-
-		// Set client options
-		clientOptions := options.Client().ApplyURI(uri)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-
-		// Connect to MongoDB
-		var err error
-		if client, err = mongo.Connect(ctx, clientOptions); err != nil {
-			return false, fmt.Errorf("create MongoDB client: %w", err)
-		}
-
-		// Check the connection
-		if err := client.Ping(ctx, nil); err != nil {
-			return false, fmt.Errorf("connect to MongoDB: %w", err)
-		}
-		return true, nil
-	}); err != nil {
-		return nil, fmt.Errorf("retry connecting to the RabbitMQ: %w", err)
-	}
-
+func NewTaskRepo(client *mongo.Client, database string, collection string) repository.TaskRepository {
 	return &taskRepo{
 		client:     client,
 		database:   database,
 		collection: collection,
-		ctx:        context.Background(),
-	}, nil
+	}
 }
 
-func (t *taskRepo) CreateTaskResult(taskResult *domain.TaskResult) error {
+func (t *taskRepo) CreateTaskResult(ctx context.Context, taskResult *domain.TaskResult) error {
 	collection := t.client.Database(t.database).Collection(t.collection)
 
-	_, err := collection.InsertOne(t.ctx, taskResult)
+	_, err := collection.InsertOne(ctx, taskResult)
 	if err != nil {
-		return err
+		return errors.Join(ErrCreateTaskResult, err)
 	}
 
 	return nil
 }
 
-func (t *taskRepo) UpdateTaskResult(taskResult *domain.TaskResult) error {
+func (t *taskRepo) UpdateTaskResult(ctx context.Context, taskResult *domain.TaskResult) error {
 	collection := t.client.Database(t.database).Collection(t.collection)
 
 	filter := bson.M{"taskid": taskResult.TaskID}
 
-	if _, err := collection.ReplaceOne(t.ctx, filter, taskResult); err != nil {
-		return err
+	if _, err := collection.ReplaceOne(ctx, filter, taskResult); err != nil {
+		return errors.Join(ErrUpdateTaskResult, err)
 	}
 
 	return nil
 }
 
-func (t *taskRepo) GetTaskResult(id string) (*domain.TaskResult, error) {
+func (t *taskRepo) GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error) {
 	collection := t.client.Database(t.database).Collection(t.collection)
 
 	filter := bson.M{"taskid": id}
@@ -92,17 +61,12 @@ func (t *taskRepo) GetTaskResult(id string) (*domain.TaskResult, error) {
 	// create a value into which the result can be decoded
 	var result domain.TaskResult
 
-	if err := collection.FindOne(t.ctx, filter).Decode(&result); err != nil {
-		return nil, err
+	if err := collection.FindOne(ctx, filter).Decode(&result); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, errors.Join(repository.ErrTaskNotFound, err)
+		}
+		return nil, errors.Join(ErrGetTaskResult, err)
 	}
 
 	return &result, nil
-}
-
-func (t *taskRepo) Close(ctx context.Context) error {
-	if err := t.client.Disconnect(ctx); err != nil {
-		return err
-	}
-
-	return nil
 }

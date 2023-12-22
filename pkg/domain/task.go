@@ -10,9 +10,9 @@ const (
 )
 
 type Task struct {
-	ID      string              `bson:"_id" json:"id"`
-	Method  string              `json:"method,omitempty"`
-	URL     string              `json:"url,omitempty" validate:"url"`
+	ID      string              `json:"id"`
+	Method  string              `json:"method,omitempty"  validate:"oneof=GET HEAD POST PUT PATCH DELETE CONNECT OPTIONS TRACE"`
+	URL     string              `json:"url,omitempty"     validate:"url"`
 	Headers map[string][]string `json:"headers,omitempty"`
 }
 

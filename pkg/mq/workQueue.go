@@ -1,11 +1,12 @@
 package mq
 
-import "io"
+import (
+	"context"
+)
 
 type ProcessingFunc func(message string)
 
 type WorkQueue interface {
-	io.Closer
-	Publish(message string) error
-	Consume(doFunc ProcessingFunc) error
+	Publish(ctx context.Context, message string) error
+	Consume(ctx context.Context, doFunc ProcessingFunc) error
 }

@@ -1,0 +1,70 @@
+# This is our linters configuration
+# We use https://github.com/golangci/golangci-lint because it allows us to run multiple linters at the same time
+
+run:
+  timeout: 5m
+  skip-dirs:
+    - stub
+
+linters:
+  enable-all: true
+  disable:
+    - maligned
+    - wsl
+    - whitespace
+    - godox
+    - godot
+    - interfacer
+    - nolintlint
+    - noctx
+    - gofumpt
+    - exhaustive
+    - gci
+    - nlreturn
+    - exhaustivestruct
+    - forbidigo
+    - paralleltest
+    - cyclop
+    - ifshort
+    - nilerr
+    - thelper
+    - tagliatelle
+    - golint # deprecated in favour of revive
+    - scopelint # deprecated in favour of exportloopref
+    - varnamelen
+    - ireturn
+    - exhaustruct
+    - testpackage
+    - depguard
+linters-settings:
+  funlen:
+    lines: 100
+    statements: 40
+  nakedret:
+    max-func-lines: 0
+  lll:
+    line-length: 140
+  gocyclo:
+    min-complexity: 20
+  golint:
+    min-confidence: 0
+  dupl:
+    threshold: 100
+  govet:
+    check-shadowing: true
+  wrapcheck:
+    # An array of strings that specify substrings of signatures to ignore.
+    # If this set, it will override the default set of ignored signatures.
+    # See https://github.com/tomarrell/wrapcheck#configuration for more information.
+    ignoreSigs:
+      - .Errorf(
+      - errors.New(
+      - errors.Unwrap(
+      - errors.Join(
+      - .Wrap(
+      - .Wrapf(
+      - .WithMessage(
+      - .WithMessagef(
+      - .WithStack(
+output:
+  print-issued-lines: false

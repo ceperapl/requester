@@ -1,24 +1,28 @@
 package utils
 
 import (
-	"fmt"
+	"errors"
 	"time"
 )
 
-type RetryFunc func() (stop bool, err error)
+var (
+	ErrRetryCountExceeded = errors.New("retry count exceeded")
+)
+
+type RetryFunc func(attempt int) (stop bool, err error)
 
 // Retry runs function until true
-func Retry(operation string, interval time.Duration, maxAttempts int, doFunc RetryFunc) error {
+func Retry(interval time.Duration, maxAttempts int, doFunc RetryFunc) error {
 	var err error
 	ticker := time.NewTicker(interval)
-	currentAttempt := 0
+	attempt := 0
 	for range ticker.C {
-		currentAttempt++
-		if currentAttempt > maxAttempts {
-			return fmt.Errorf("number of attempts (%d) to %s exceeded: %w", maxAttempts, operation, err)
+		attempt++
+		if attempt > maxAttempts {
+			return errors.Join(ErrRetryCountExceeded, err)
 		}
 		var stop bool
-		stop, err = doFunc()
+		stop, err = doFunc(attempt)
 		if stop {
 			break
 		}
