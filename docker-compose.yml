@@ -1,33 +1,44 @@
 version: '3'
 services:
   db:
-    image: postgres:9.6.14-alpine
+    image: mongo:latest
     restart: always
-    container_name: db
+    container_name: mongo
     networks:
-      - blanksvc
+      - requester
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=blanksvc
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
     ports:
-      - 5432:5432
+      - 27017:27017
 
-  blanksvc:
-    image: blanksvc:dev
+  mq:
+    image: rabbitmq:3.12-management
+    restart: always
+    container_name: rabbitmq
+    networks:
+      - requester
+    ports:
+      - 5672:5672
+      - 15672:15672
+
+  requester:
+    image: requester:dev
     build:
       context: .
       dockerfile: "./Dockerfile"
     networks:
-      - blanksvc
+      - requester
     depends_on:
       - db
+      - mq
     ports:
       - 8080:8080
-      - 9000:9000
     environment:
-      - BLANK_POSTGRES_DSN=postgres://user:password@db/blanksvc?sslmode=disable
+      - REQUESTER_MONGODB_URI=mongodb://admin:password@db:27017
+      - REQUESTER_RABBITMQ_URI=amqp://guest:guest@mq:5672/
+      - REQUESTER_DEBUG=true
 
 networks:
-  blanksvc:
+  requester:
     driver: bridge

@@ -31,8 +31,8 @@ const (
 	rabbitmqURIEnv     = "RABBITMQ_URI"
 	rabbitmqURIDefault = "amqp://guest:guest@localhost:5672/"
 
-	rabbitmqQueueNameEnv     = "RABBITMQ_QUEUE_NAME"
-	rabbitmqQueueNameDefault = "task_queue"
+	rabbitmqQueueEnv     = "RABBITMQ_QUEUE"
+	rabbitmqQueueDefault = "task_queue"
 
 	taskReqTimeoutEnv     = "TASK_REQ_TIMEOUT"
 	taskReqTimeoutDefault = 10
@@ -108,9 +108,9 @@ func NewConfig() Config {
 	config.RabbitMQ.URI = viper.GetString(rabbitmqURIEnv)
 
 	//nolint: errcheck
-	viper.BindEnv(rabbitmqQueueNameEnv)
-	viper.SetDefault(rabbitmqQueueNameEnv, rabbitmqQueueNameDefault)
-	config.RabbitMQ.QueueName = viper.GetString(rabbitmqQueueNameEnv)
+	viper.BindEnv(rabbitmqQueueEnv)
+	viper.SetDefault(rabbitmqQueueEnv, rabbitmqQueueDefault)
+	config.RabbitMQ.QueueName = viper.GetString(rabbitmqQueueEnv)
 
 	//nolint: errcheck
 	viper.BindEnv(taskReqTimeoutEnv)
@@ -129,23 +129,23 @@ func NewConfig() Config {
 
 	// Init config via flags
 	pflag.Uint16Var(&config.HTTPServer.Port, "httpserver.port", config.HTTPServer.Port,
-		fmt.Sprintf("HTTP Server port; env: %s", httpServerPortEnv))
+		fmt.Sprintf("HTTP Server port; env: %s", fmt.Sprintf("%s_%s", envPrefix, httpServerPortEnv)))
 	pflag.StringVar(&config.HTTPServer.ReadinessEndpoint, "httpserver.readiness", config.HTTPServer.ReadinessEndpoint,
-		fmt.Sprintf("HTTP Server readiness endpoint name; env: %s", httpReadinessEndpointEnv))
+		fmt.Sprintf("HTTP Server readiness endpoint name; env: %s", fmt.Sprintf("%s_%s", envPrefix, httpReadinessEndpointEnv)))
 	pflag.StringVar(&config.HTTPServer.LivenessEndpoint, "httpserver.liveness", config.HTTPServer.LivenessEndpoint,
-		fmt.Sprintf("HTTP Server liveness endpoint name; env: %s", httpLivenessEndpointEnv))
+		fmt.Sprintf("HTTP Server liveness endpoint name; env: %s", fmt.Sprintf("%s_%s", envPrefix, httpLivenessEndpointEnv)))
 	pflag.StringVar(&config.MongoDB.Database, "mongodb.db", config.MongoDB.Database,
-		fmt.Sprintf("MongoDB database; env: %s", mongodbDatabaseEnv))
+		fmt.Sprintf("MongoDB database; env: %s", fmt.Sprintf("%s_%s", envPrefix, mongodbDatabaseEnv)))
 	pflag.StringVar(&config.MongoDB.Collection, "mongodb.collection", config.MongoDB.Collection,
-		fmt.Sprintf("MongoDB collection; env: %s", mongodbCollectionEnv))
+		fmt.Sprintf("MongoDB collection; env: %s", fmt.Sprintf("%s_%s", envPrefix, mongodbCollectionEnv)))
 	pflag.StringVar(&config.RabbitMQ.QueueName, "rabbitmq.queue", config.RabbitMQ.QueueName,
-		fmt.Sprintf("RabbitMQ queue name; env: %s", rabbitmqQueueNameEnv))
+		fmt.Sprintf("RabbitMQ queue name; env: %s", fmt.Sprintf("%s_%s", envPrefix, rabbitmqQueueEnv)))
 	pflag.IntVar(&config.TaskReqTimeout, "task.req.timeout", config.TaskReqTimeout,
-		fmt.Sprintf("Timeout for task requests in seconds; env: %s", taskReqTimeoutEnv))
+		fmt.Sprintf("Timeout for task requests in seconds; env: %s", fmt.Sprintf("%s_%s", envPrefix, taskReqTimeoutEnv)))
 	pflag.IntVar(&config.WorkersCount, "workers", config.WorkersCount,
-		fmt.Sprintf("number of workers for simultaneous processing of tasks; env: %s", workersCountEnv))
+		fmt.Sprintf("number of workers for simultaneous processing of tasks; env: %s", fmt.Sprintf("%s_%s", envPrefix, workersCountEnv)))
 	pflag.BoolVar(&config.Debug, "debug", config.Debug,
-		fmt.Sprintf("sets log level to debug; env: %s", debugEnv))
+		fmt.Sprintf("sets log level to debug; env: %s", fmt.Sprintf("%s_%s", envPrefix, debugEnv)))
 
 	pflag.Parse()
 
