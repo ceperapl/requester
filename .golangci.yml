@@ -23,6 +23,9 @@ linters:
     - gofmt
     - goimports
 linters-settings:
+  revive:
+    rules:
+      - name: exported
   funlen:
     lines: 100
     statements: 40
@@ -52,5 +55,11 @@ linters-settings:
       - .WithMessage(
       - .WithMessagef(
       - .WithStack(
+issues:
+  include:
+    - EXC0012
+    - EXC0013
+    - EXC0014
+    - EXC0015
 output:
   print-issued-lines: false

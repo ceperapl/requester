@@ -13,12 +13,14 @@ import (
 
 	deliveryhttp "github.com/ceperapl/requester/pkg/delivery/http"
 	"github.com/ceperapl/requester/pkg/domain"
+	httpstuff "github.com/ceperapl/requester/pkg/http"
 	"github.com/ceperapl/requester/pkg/logging"
 	"github.com/ceperapl/requester/pkg/mq"
 	"github.com/ceperapl/requester/pkg/mq/rabbitmq"
 	"github.com/ceperapl/requester/pkg/repository/mongodb"
 	"github.com/ceperapl/requester/pkg/usecase"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -61,15 +63,23 @@ func RunServer() error {
 	}
 
 	rootMux := mux.NewRouter()
-	httpHandler, err := deliveryhttp.NewTaskHandler(rootMux, taskService)
-	if err != nil {
-		return fmt.Errorf("coudn't create http task handler: %w", err)
+	if err := deliveryhttp.Handle(rootMux, taskService); err != nil {
+		return err
 	}
+
+	// Configure health checks
+	healthchecker := httpstuff.NewHealthChecker()
+	healthchecker.AddReadinessChecks(checkDB(mongoDBClient))
+	healthchecker.AddReadinessChecks(checkMQ(rabbitMQConn))
+	rootMux.Handle(config.HTTPServer.ReadinessEndpoint, healthchecker.ReadinessHandler())
+	rootMux.Handle(config.HTTPServer.LivenessEndpoint, healthchecker.LivenessHandler())
+	// Configure metrics
+	rootMux.Handle("/metrics", promhttp.Handler())
 
 	httpServerAddr := fmt.Sprintf("0.0.0.0:%d", config.HTTPServer.Port)
 	httpSrv := &http.Server{
 		Addr:              httpServerAddr,
-		Handler:           httpHandler,
+		Handler:           rootMux,
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 
@@ -151,4 +161,25 @@ func gracefulShutdown(timeout time.Duration, httpServer *http.Server, rabbitMQCo
 
 		os.Exit(0)
 	}()
+}
+
+func checkDB(client *mongo.Client) httpstuff.Check {
+	return func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+		if err := client.Ping(ctx, nil); err != nil {
+			return err
+		}
+
+		return nil
+	}
+}
+
+func checkMQ(conn *amqp.Connection) httpstuff.Check {
+	return func() error {
+		if conn.IsClosed() {
+			return errors.New("RabbitMQ connection closed")
+		}
+		return nil
+	}
 }

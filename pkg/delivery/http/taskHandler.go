@@ -21,12 +21,12 @@ var (
 
 type handlerFuncWithError func(http.ResponseWriter, *http.Request) error
 
-func NewTaskHandler(mux *mux.Router, taskService usecase.TaskUsecaser) (*mux.Router, error) {
+func Handle(mux *mux.Router, taskService usecase.TaskUsecaser) error {
 	valid, err := validator.New(
 		validator.WithJSONNamesForStructFields(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't create validator: %w", err)
+		return fmt.Errorf("couldn't create validator: %w", err)
 	}
 
 	handler := &taskHandler{
@@ -40,7 +40,7 @@ func NewTaskHandler(mux *mux.Router, taskService usecase.TaskUsecaser) (*mux.Rou
 	subRouter.Handle("/task", logEndpoint(errorHandler(handler.CreateTaskEndpoint(ctx)))).Methods(http.MethodPost)
 	subRouter.Handle("/task/{id}", logEndpoint(errorHandler(handler.GetTaskResultEndpoint(ctx)))).Methods(http.MethodGet)
 
-	return subRouter, nil
+	return nil
 }
 
 type taskHandler struct {
