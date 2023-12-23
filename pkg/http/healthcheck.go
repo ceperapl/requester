@@ -5,21 +5,24 @@ import (
 	"sync"
 )
 
+// Check is a function type that performs a health check and returns an error if any.
 type Check func() error
 
-// // HealthChecker is the interface that wraps the methods for health checks.
-// type HealthChecker interface {
-// 	AddLivenessChecks(check Check)
-// 	AddReadinessChecks(check Check)
-// 	LivenessHandler() http.HandlerFunc
-// 	ReadinessHandler() http.HandlerFunc
-// }
+// HealthChecker is the interface that wraps the methods for health checks.
+type HealthChecker interface {
+	AddLivenessChecks(check Check)
+	AddReadinessChecks(check Check)
+	LivenessHandler() http.HandlerFunc
+	ReadinessHandler() http.HandlerFunc
+}
 
-// NewHealthChecker creates instance of HealthChecker
+// NewHealthChecker creates and returns a new HealthCheck instance.
 func NewHealthChecker() *HealthCheck {
 	return &HealthCheck{}
 }
 
+// HealthCheck is a struct that implements the HealthChecker interface.
+// It manages a list of liveness and readiness checks and provides HTTP handlers for them.
 type HealthCheck struct {
 	lock sync.RWMutex
 
@@ -27,26 +30,34 @@ type HealthCheck struct {
 	readinessChecks []Check
 }
 
+// LivenessHandler returns a http.HandlerFunc that performs the liveness checks and writes the result to the response writer.
+// It writes http.StatusOK if all the checks pass, or http.StatusServiceUnavailable if any of them fails.
 func (h *HealthCheck) LivenessHandler() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		if err := h.checkLiveness(); err != nil {
 			rw.WriteHeader(http.StatusServiceUnavailable)
+
 			return
 		}
 		rw.WriteHeader(http.StatusOK)
 	}
 }
 
+// ReadinessHandler returns a http.HandlerFunc that performs the readiness checks and writes the result to the response writer.
+// It writes http.StatusOK if all the checks pass, or http.StatusServiceUnavailable if any of them fails.
 func (h *HealthCheck) ReadinessHandler() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		if err := h.checkReadiness(); err != nil {
 			rw.WriteHeader(http.StatusServiceUnavailable)
+
 			return
 		}
 		rw.WriteHeader(http.StatusOK)
 	}
 }
 
+// AddLivenessChecks adds one or more liveness checks to the HealthCheck instance.
+// Liveness checks are used to determine if the service is running and able to handle requests.
 func (h *HealthCheck) AddLivenessChecks(check Check) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
@@ -54,6 +65,8 @@ func (h *HealthCheck) AddLivenessChecks(check Check) {
 	h.livenessChecks = append(h.livenessChecks, check)
 }
 
+// AddReadinessChecks adds one or more readiness checks to the HealthCheck instance.
+// Readiness checks are used to determine if the service is ready to serve traffic, such as having all the dependencies available.
 func (h *HealthCheck) AddReadinessChecks(check Check) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
@@ -61,6 +74,7 @@ func (h *HealthCheck) AddReadinessChecks(check Check) {
 	h.readinessChecks = append(h.readinessChecks, check)
 }
 
+// checkReadiness performs all the readiness checks and returns an error if any of them fails.
 func (h *HealthCheck) checkReadiness() error {
 	h.lock.RLock()
 	defer h.lock.RUnlock()
@@ -70,9 +84,11 @@ func (h *HealthCheck) checkReadiness() error {
 			return err
 		}
 	}
+
 	return nil
 }
 
+// checkLiveness performs all the liveness checks and returns an error if any of them fails.
 func (h *HealthCheck) checkLiveness() error {
 	h.lock.RLock()
 	defer h.lock.RUnlock()
@@ -82,5 +98,6 @@ func (h *HealthCheck) checkLiveness() error {
 			return err
 		}
 	}
+
 	return nil
 }

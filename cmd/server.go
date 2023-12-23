@@ -31,9 +31,15 @@ const (
 	gracefulShutdownTimeout = 20 * time.Second
 )
 
+var (
+	errRabbitMQConn = errors.New("RabbitMQ connection closed")
+)
+
+// RunServer is a function that runs a HTTP server that handles tasks
+// using MongoDB, RabbitMQ, and other packages.
 func RunServer() error {
 	// Init config
-	config := NewConfig()
+	config := newConfig()
 
 	logging.LogInit(config.Debug)
 
@@ -57,13 +63,11 @@ func RunServer() error {
 		return fmt.Errorf("couldn't create work queue: %w", err)
 	}
 
-	taskService, err := usecase.NewTaskService(taskRepo, workQueue)
-	if err != nil {
-		return fmt.Errorf("couldn't create task usecase: %w", err)
-	}
+	taskService := usecase.NewTaskService(taskRepo, workQueue)
 
 	rootMux := mux.NewRouter()
 	if err := deliveryhttp.Handle(rootMux, taskService); err != nil {
+		//nolint: wrapcheck
 		return err
 	}
 
@@ -168,6 +172,7 @@ func checkDB(client *mongo.Client) httpstuff.Check {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 		if err := client.Ping(ctx, nil); err != nil {
+			//nolint: wrapcheck
 			return err
 		}
 
@@ -178,8 +183,9 @@ func checkDB(client *mongo.Client) httpstuff.Check {
 func checkMQ(conn *amqp.Connection) httpstuff.Check {
 	return func() error {
 		if conn.IsClosed() {
-			return errors.New("RabbitMQ connection closed")
+			return errRabbitMQConn
 		}
+
 		return nil
 	}
 }

@@ -44,7 +44,7 @@ const (
 	debugDefault = false
 )
 
-type Config struct {
+type config struct {
 	HTTPServer struct {
 		Port              uint16
 		ReadinessEndpoint string
@@ -66,8 +66,8 @@ type Config struct {
 }
 
 //nolint: funlen
-func NewConfig() Config {
-	config := Config{}
+func newConfig() config {
+	conf := config{}
 
 	// Init config via env variables
 	viper.SetEnvPrefix(envPrefix)
@@ -75,79 +75,79 @@ func NewConfig() Config {
 	//nolint: errcheck
 	viper.BindEnv(httpServerPortEnv)
 	viper.SetDefault(httpServerPortEnv, httpServerPortDefault)
-	config.HTTPServer.Port = viper.GetUint16(httpServerPortEnv)
+	conf.HTTPServer.Port = viper.GetUint16(httpServerPortEnv)
 
 	//nolint: errcheck
 	viper.BindEnv(httpReadinessEndpointEnv)
 	viper.SetDefault(httpReadinessEndpointEnv, httpReadinessEndpointDefault)
-	config.HTTPServer.ReadinessEndpoint = viper.GetString(httpReadinessEndpointEnv)
+	conf.HTTPServer.ReadinessEndpoint = viper.GetString(httpReadinessEndpointEnv)
 
 	//nolint: errcheck
 	viper.BindEnv(httpLivenessEndpointEnv)
 	viper.SetDefault(httpLivenessEndpointEnv, httpLivenessEndpointDefault)
-	config.HTTPServer.LivenessEndpoint = viper.GetString(httpLivenessEndpointEnv)
+	conf.HTTPServer.LivenessEndpoint = viper.GetString(httpLivenessEndpointEnv)
 
 	//nolint: errcheck
 	viper.BindEnv(mongodbURIEnv)
 	viper.SetDefault(mongodbURIEnv, mongodbURIDefault)
-	config.MongoDB.URI = viper.GetString(mongodbURIEnv)
+	conf.MongoDB.URI = viper.GetString(mongodbURIEnv)
 
 	//nolint: errcheck
 	viper.BindEnv(mongodbDatabaseEnv)
 	viper.SetDefault(mongodbDatabaseEnv, mongodbDatabaseDefault)
-	config.MongoDB.Database = viper.GetString(mongodbDatabaseEnv)
+	conf.MongoDB.Database = viper.GetString(mongodbDatabaseEnv)
 
 	//nolint: errcheck
 	viper.BindEnv(mongodbCollectionEnv)
 	viper.SetDefault(mongodbCollectionEnv, mongodbCollectionDefault)
-	config.MongoDB.Collection = viper.GetString(mongodbCollectionEnv)
+	conf.MongoDB.Collection = viper.GetString(mongodbCollectionEnv)
 
 	//nolint: errcheck
 	viper.BindEnv(rabbitmqURIEnv)
 	viper.SetDefault(rabbitmqURIEnv, rabbitmqURIDefault)
-	config.RabbitMQ.URI = viper.GetString(rabbitmqURIEnv)
+	conf.RabbitMQ.URI = viper.GetString(rabbitmqURIEnv)
 
 	//nolint: errcheck
 	viper.BindEnv(rabbitmqQueueEnv)
 	viper.SetDefault(rabbitmqQueueEnv, rabbitmqQueueDefault)
-	config.RabbitMQ.QueueName = viper.GetString(rabbitmqQueueEnv)
+	conf.RabbitMQ.QueueName = viper.GetString(rabbitmqQueueEnv)
 
 	//nolint: errcheck
 	viper.BindEnv(taskReqTimeoutEnv)
 	viper.SetDefault(taskReqTimeoutEnv, taskReqTimeoutDefault)
-	config.TaskReqTimeout = viper.GetInt(taskReqTimeoutEnv)
+	conf.TaskReqTimeout = viper.GetInt(taskReqTimeoutEnv)
 
 	//nolint: errcheck
 	viper.BindEnv(workersCountEnv)
 	viper.SetDefault(workersCountEnv, workersCountDefault)
-	config.WorkersCount = viper.GetInt(workersCountEnv)
+	conf.WorkersCount = viper.GetInt(workersCountEnv)
 
 	//nolint: errcheck
 	viper.BindEnv(debugEnv)
 	viper.SetDefault(debugEnv, debugDefault)
-	config.Debug = viper.GetBool(debugEnv)
+	conf.Debug = viper.GetBool(debugEnv)
 
 	// Init config via flags
-	pflag.Uint16Var(&config.HTTPServer.Port, "httpserver.port", config.HTTPServer.Port,
+	pflag.Uint16Var(&conf.HTTPServer.Port, "httpserver.port", conf.HTTPServer.Port,
 		fmt.Sprintf("HTTP Server port; env: %s", fmt.Sprintf("%s_%s", envPrefix, httpServerPortEnv)))
-	pflag.StringVar(&config.HTTPServer.ReadinessEndpoint, "httpserver.readiness", config.HTTPServer.ReadinessEndpoint,
+	pflag.StringVar(&conf.HTTPServer.ReadinessEndpoint, "httpserver.readiness", conf.HTTPServer.ReadinessEndpoint,
 		fmt.Sprintf("HTTP Server readiness endpoint name; env: %s", fmt.Sprintf("%s_%s", envPrefix, httpReadinessEndpointEnv)))
-	pflag.StringVar(&config.HTTPServer.LivenessEndpoint, "httpserver.liveness", config.HTTPServer.LivenessEndpoint,
+	pflag.StringVar(&conf.HTTPServer.LivenessEndpoint, "httpserver.liveness", conf.HTTPServer.LivenessEndpoint,
 		fmt.Sprintf("HTTP Server liveness endpoint name; env: %s", fmt.Sprintf("%s_%s", envPrefix, httpLivenessEndpointEnv)))
-	pflag.StringVar(&config.MongoDB.Database, "mongodb.db", config.MongoDB.Database,
+	pflag.StringVar(&conf.MongoDB.Database, "mongodb.db", conf.MongoDB.Database,
 		fmt.Sprintf("MongoDB database; env: %s", fmt.Sprintf("%s_%s", envPrefix, mongodbDatabaseEnv)))
-	pflag.StringVar(&config.MongoDB.Collection, "mongodb.collection", config.MongoDB.Collection,
+	pflag.StringVar(&conf.MongoDB.Collection, "mongodb.collection", conf.MongoDB.Collection,
 		fmt.Sprintf("MongoDB collection; env: %s", fmt.Sprintf("%s_%s", envPrefix, mongodbCollectionEnv)))
-	pflag.StringVar(&config.RabbitMQ.QueueName, "rabbitmq.queue", config.RabbitMQ.QueueName,
+	pflag.StringVar(&conf.RabbitMQ.QueueName, "rabbitmq.queue", conf.RabbitMQ.QueueName,
 		fmt.Sprintf("RabbitMQ queue name; env: %s", fmt.Sprintf("%s_%s", envPrefix, rabbitmqQueueEnv)))
-	pflag.IntVar(&config.TaskReqTimeout, "task.req.timeout", config.TaskReqTimeout,
+	pflag.IntVar(&conf.TaskReqTimeout, "task.req.timeout", conf.TaskReqTimeout,
 		fmt.Sprintf("Timeout for task requests in seconds; env: %s", fmt.Sprintf("%s_%s", envPrefix, taskReqTimeoutEnv)))
-	pflag.IntVar(&config.WorkersCount, "workers", config.WorkersCount,
+	pflag.IntVar(&conf.WorkersCount, "workers", conf.WorkersCount,
 		fmt.Sprintf("number of workers for simultaneous processing of tasks; env: %s", fmt.Sprintf("%s_%s", envPrefix, workersCountEnv)))
-	pflag.BoolVar(&config.Debug, "debug", config.Debug,
+	pflag.BoolVar(&conf.Debug, "debug", conf.Debug,
 		fmt.Sprintf("sets log level to debug; env: %s", fmt.Sprintf("%s_%s", envPrefix, debugEnv)))
 
 	pflag.Parse()
 
-	return config
+	return conf
 }

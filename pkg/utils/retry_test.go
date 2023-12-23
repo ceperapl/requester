@@ -1,57 +1,51 @@
 package utils_test
 
-// import (
-// 	"errors"
-// 	"testing"
-// 	"time"
+import (
+	"errors"
+	"testing"
+	"time"
 
-// 	"github.com/stretchr/testify/assert"
-// 	"github.com/stretchr/testify/require"
-// )
+	"github.com/ceperapl/requester/pkg/utils"
+	"github.com/stretchr/testify/require"
+)
 
-// // nolint: goerr113
-// func TestRetry(t *testing.T) {
-// 	t.Parallel()
+var errSomethingWentWrong = errors.New("something went wrong")
 
-// 	t.Run("success - one attempt", func(t *testing.T) {
-// 		t.Parallel()
-// 		stopCondition := true
-// 		atteptCount := 0
-// 		retryFunc := func() (bool, error) {
-// 			atteptCount++
-// 			return stopCondition, nil
-// 		}
+// TestRetrySuccess tests that the Retry function returns nil when the doFunc succeeds.
+func TestRetrySuccess(t *testing.T) {
+	t.Parallel()
+	// Define a doFunc that returns true and nil after 3 attempts.
+	doFunc := func(attempt int) (bool, error) {
+		if attempt == 3 {
+			return true, nil
+		}
 
-// 		err := Retry("test", 100*time.Millisecond, 10, retryFunc)
-// 		require.NoError(t, err)
-// 		assert.Equal(t, 1, atteptCount)
-// 	})
+		return false, nil
+	}
 
-// 	t.Run("success - five attempts", func(t *testing.T) {
-// 		t.Parallel()
-// 		attemptCount := 0
-// 		retryFunc := func() (bool, error) {
-// 			attemptCount++
-// 			return attemptCount == 5, nil
-// 		}
+	// Call the Retry function with a 10ms interval and 5 max attempts.
+	err := utils.Retry(10*time.Millisecond, 5, doFunc)
 
-// 		err := Retry("test", 100*time.Millisecond, 10, retryFunc)
-// 		require.NoError(t, err)
-// 		assert.Equal(t, 5, attemptCount)
-// 	})
+	// Check that the error is nil.
+	require.NoError(t, err)
+}
 
-// 	t.Run("fail - attempts exceeded", func(t *testing.T) {
-// 		t.Parallel()
-// 		attemptCount := 0
-// 		expectedError := errors.New("retry func")
-// 		retryFunc := func() (bool, error) {
-// 			attemptCount++
-// 			return attemptCount == 500, expectedError
-// 		}
+// TestRetryFailure tests that the Retry function returns an error when the doFunc fails.
+func TestRetryFailure(t *testing.T) {
+	t.Parallel()
 
-// 		err := Retry("test", 100*time.Millisecond, 10, retryFunc)
-// 		require.Error(t, err)
-// 		assert.Equal(t, 10, attemptCount)
-// 		require.ErrorIs(t, err, expectedError)
-// 	})
-// }
+	// Define a doFunc that returns false and an error after 3 attempts.
+	doFunc := func(attempt int) (bool, error) {
+		if attempt == 3 {
+			return false, errSomethingWentWrong
+		}
+
+		return false, nil
+	}
+
+	// Call the Retry function with a 10ms interval and 5 max attempts.
+	err := utils.Retry(10*time.Millisecond, 5, doFunc)
+
+	// Check that the error is not nil and contains the expected message.
+	require.ErrorIs(t, err, utils.ErrRetryCountExceeded)
+}

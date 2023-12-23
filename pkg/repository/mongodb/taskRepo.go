@@ -11,17 +11,22 @@ import (
 )
 
 var (
+	// ErrCreateTaskResult is an error that indicates a failure to create a task result in MongoDB.
 	ErrCreateTaskResult = errors.New("couldn't create task result")
+	// ErrUpdateTaskResult is an error that indicates a failure to update a task result in MongoDB.
 	ErrUpdateTaskResult = errors.New("couldn't update task result")
-	ErrGetTaskResult    = errors.New("couldn't get task result")
+	// ErrGetTaskResult is an error that indicates a failure to get a task result from MongoDB.
+	ErrGetTaskResult = errors.New("couldn't get task result")
 )
 
+// TaskRepo is a struct that implements the repository.TaskRepository interface using MongoDB as the storage.
 type TaskRepo struct {
 	client     *mongo.Client
 	database   string
 	collection string
 }
 
+// NewTaskRepo creates and returns a new TaskRepo instance with the given MongoDB client, database and collection.
 func NewTaskRepo(client *mongo.Client, database string, collection string) *TaskRepo {
 	return &TaskRepo{
 		client:     client,
@@ -30,6 +35,8 @@ func NewTaskRepo(client *mongo.Client, database string, collection string) *Task
 	}
 }
 
+// CreateTaskResult creates a new task result document in MongoDB using the given task result.
+// It returns an error if it fails to insert the document.
 func (t *TaskRepo) CreateTaskResult(ctx context.Context, taskResult *domain.TaskResult) error {
 	collection := t.client.Database(t.database).Collection(t.collection)
 
@@ -41,6 +48,9 @@ func (t *TaskRepo) CreateTaskResult(ctx context.Context, taskResult *domain.Task
 	return nil
 }
 
+// UpdateTaskResult updates an existing task result document in MongoDB using the given task result.
+// It replaces the document that matches the task ID of the task result.
+// It returns an error if it fails to replace the document.
 func (t *TaskRepo) UpdateTaskResult(ctx context.Context, taskResult *domain.TaskResult) error {
 	collection := t.client.Database(t.database).Collection(t.collection)
 
@@ -53,6 +63,9 @@ func (t *TaskRepo) UpdateTaskResult(ctx context.Context, taskResult *domain.Task
 	return nil
 }
 
+// GetTaskResult gets a task result document from MongoDB using the given task ID.
+// It returns the task result and an error if any.
+// If the task ID is not found, it returns repository.ErrTaskNotFound.
 func (t *TaskRepo) GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error) {
 	collection := t.client.Database(t.database).Collection(t.collection)
 

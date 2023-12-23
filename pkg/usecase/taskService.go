@@ -6,37 +6,52 @@ import (
 	"errors"
 
 	"github.com/ceperapl/requester/pkg/domain"
-	"github.com/ceperapl/requester/pkg/http"
 	"github.com/ceperapl/requester/pkg/mq"
 	"github.com/ceperapl/requester/pkg/repository"
+	"github.com/ceperapl/requester/pkg/taskexec"
 	uuid "github.com/satori/go.uuid"
 )
 
-var (
-	ErrCreateTask    = errors.New("create task failed")
-	ErrGetTaskResult = errors.New("get task result failed")
-	ErrProcessTask   = errors.New("process task failed")
-)
+// ErrCreateTask is an error that indicates a failure to create a task.
+var ErrCreateTask = errors.New("create task failed")
 
+// ErrGetTaskResult is an error that indicates a failure to get a task result.
+var ErrGetTaskResult = errors.New("get task result failed")
+
+// ErrProcessTask is an error that indicates a failure to process a task.
+var ErrProcessTask = errors.New("process task failed")
+
+// TaskUsecaser is the interface that defines the methods for task use cases.
 type TaskUsecaser interface {
 	CreateTask(ctx context.Context, task *domain.Task) (string, error)
 	GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error)
 	ProcessTask(ctx context.Context, task *domain.Task) error
 }
 
-func NewTaskService(repos repository.TaskRepository, mq mq.WorkQueuer) (*TaskService, error) {
+// NewTaskService creates and returns a new TaskService instance.
+func NewTaskService(repos repository.TaskRepository, mq mq.WorkQueuer) *TaskService {
+	taskExec := taskexec.NewTaskExecution()
+
 	return &TaskService{
-		repos:     repos,
-		workQueue: mq,
-	}, nil
+		repos:        repos,
+		workQueue:    mq,
+		taskExecutor: taskExec,
+	}
 }
 
+// TaskService is a struct that implements the TaskUsecaser interface.
+// It uses a task repository and a work queue to manage tasks and their results.
 type TaskService struct {
-	repos     repository.TaskRepository
-	workQueue mq.WorkQueuer
+	repos        repository.TaskRepository
+	workQueue    mq.WorkQueuer
+	taskExecutor taskexec.TaskExecutor
 }
 
-func (t *TaskService) CreateTask(ctx context.Context, task *domain.Task) (string, error) {
+// CreateTask creates a new task and returns its ID.
+// It generates a unique ID for the task, creates a new task result with status "new", saves it to the task repository,
+// and publishes the task to the work queue.
+// It returns an error if it fails to marshal the task, save the task result, or publish the task.
+func (ts *TaskService) CreateTask(ctx context.Context, task *domain.Task) (string, error) {
 	task.ID = uuid.NewV4().String()
 
 	taskResult := domain.TaskResult{
@@ -44,7 +59,7 @@ func (t *TaskService) CreateTask(ctx context.Context, task *domain.Task) (string
 		Status: domain.TaskNew,
 	}
 
-	if err := t.repos.CreateTaskResult(ctx, &taskResult); err != nil {
+	if err := ts.repos.CreateTaskResult(ctx, &taskResult); err != nil {
 		return "", errors.Join(ErrCreateTask, err)
 	}
 
@@ -52,16 +67,19 @@ func (t *TaskService) CreateTask(ctx context.Context, task *domain.Task) (string
 	if err != nil {
 		return "", errors.Join(ErrCreateTask, err)
 	}
-	if err := t.workQueue.Publish(ctx, string(taskJSON)); err != nil {
+	if err := ts.workQueue.Publish(ctx, string(taskJSON)); err != nil {
 		return "", errors.Join(ErrCreateTask, err)
 	}
 
 	return task.ID, nil
 }
 
-func (t *TaskService) GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error) {
+// GetTaskResult returns the task result for the given ID.
+// It retrieves the task result from the task repository and returns it.
+// It returns an error if it fails to get the task result from the repository.
+func (ts *TaskService) GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error) {
 	// get task result from MongoDB
-	taskResult, err := t.repos.GetTaskResult(ctx, id)
+	taskResult, err := ts.repos.GetTaskResult(ctx, id)
 	if err != nil {
 		//nolint: wrapcheck
 		return nil, err
@@ -70,42 +88,32 @@ func (t *TaskService) GetTaskResult(ctx context.Context, id string) (*domain.Tas
 	return taskResult, nil
 }
 
-func (t *TaskService) ProcessTask(ctx context.Context, task *domain.Task) error {
-	taskResult := domain.TaskResult{
-		TaskID: task.ID,
-		Status: domain.TaskInProgress,
-	}
-
+// ProcessTask executes the task and updates its result.
+func (ts *TaskService) ProcessTask(ctx context.Context, task *domain.Task) error {
 	// update task result state to "in progress" in MongoDB
-	if err := t.repos.UpdateTaskResult(ctx, &taskResult); err != nil {
+	if err := ts.repos.UpdateTaskResult(ctx, &domain.TaskResult{TaskID: task.ID, Status: domain.TaskInProgress}); err != nil {
 		return errors.Join(ErrProcessTask, err)
 	}
 
-	// perform task request
-	httpClient := http.NewClient()
-	req := http.Request{
-		Method:  task.Method,
-		URL:     task.URL,
-		Headers: task.Headers,
-	}
-	resp, err := httpClient.DoRequest(ctx, req)
+	// execute the task
+	taskResult, err := ts.taskExecutor.ExecuteTask(ctx, task)
 	if err != nil {
-		taskResult.Status = domain.TaskError
-		taskResult.Error = err.Error()
 		// update task result state to "error" in MongoDB
-		if updTaskErr := t.repos.UpdateTaskResult(ctx, &taskResult); updTaskErr != nil {
+		updTaskErr := ts.repos.UpdateTaskResult(ctx,
+			&domain.TaskResult{
+				TaskID: task.ID,
+				Status: domain.TaskError,
+				Error:  err.Error(),
+			})
+		if updTaskErr != nil {
 			return errors.Join(ErrProcessTask, updTaskErr)
 		}
 
 		return errors.Join(ErrProcessTask, err)
 	}
 
-	taskResult.Status = domain.TaskDone
-	taskResult.HTTPStatusCode = &resp.StatusCode
-	taskResult.Headers = resp.Headers
-	taskResult.ContentLength = resp.ContentLength
 	// update task result in MongoDB
-	if err := t.repos.UpdateTaskResult(ctx, &taskResult); err != nil {
+	if err := ts.repos.UpdateTaskResult(ctx, taskResult); err != nil {
 		return errors.Join(ErrProcessTask, err)
 	}
 

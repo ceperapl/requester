@@ -41,7 +41,10 @@ tasks:
 
   test:
     desc: Checks and tests the service
-    deps: [analysis]
     cmds:
       - cmd: go test -coverprofile=coverage.out ./...
+
+  coverage:
+    desc: Open test coverage html
+    cmds:
       - cmd: go tool cover -html=coverage.out

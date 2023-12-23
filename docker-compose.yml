@@ -2,7 +2,6 @@ version: '3'
 services:
   db:
     image: mongo:latest
-    restart: always
     container_name: mongo
     networks:
       - requester
@@ -14,7 +13,6 @@ services:
 
   mq:
     image: rabbitmq:3.12-management
-    restart: always
     container_name: rabbitmq
     networks:
       - requester

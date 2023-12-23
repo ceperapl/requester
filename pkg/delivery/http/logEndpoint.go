@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// logEndpoint is a middleware function that logs the HTTP method and URL of each request.
 func logEndpoint(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get the method and url from the request

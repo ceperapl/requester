@@ -12,24 +12,22 @@ import (
 	en_translations "github.com/go-playground/validator/v10/translations/en"
 )
 
+// Define some variables for the custom errors that might occur when using the validator package.
 var (
 	ErrTranslatorNotFound = errors.New("translator for en locale is not found")
 	ErrValidation         = errors.New("validation error")
 )
 
-type Translation struct {
-	Tag           string
-	RegisterFn    valid.RegisterTranslationsFunc
-	TranslationFn valid.TranslationFunc
-}
-
+// Validation is a type that encapsulates a validator.
 type Validation struct {
 	Validator  *valid.Validate
 	Translator ut.Translator
 }
 
+// Option is a type that represents a function that modifies the validation settings.
 type Option func(*Validation) error
 
+// New is a function that creates and returns a new validation instance with the given options.
 func New(opts ...Option) (*Validation, error) {
 	validator := valid.New()
 	enTranslator := en.New()
@@ -57,6 +55,8 @@ func New(opts ...Option) (*Validation, error) {
 	return validation, nil
 }
 
+// WithJSONNamesForStructFields is an option function that
+// sets the tag name function for the validator to use the JSON names of the struct fields.
 func WithJSONNamesForStructFields() Option {
 	return func(v *Validation) error {
 		v.Validator.RegisterTagNameFunc(func(fld reflect.StructField) string {
@@ -69,6 +69,7 @@ func WithJSONNamesForStructFields() Option {
 	}
 }
 
+// ValidateStruct validates a struct using the validator and the translator.
 func (v *Validation) ValidateStruct(s interface{}) error {
 	var errStr string
 	if err := v.Validator.Struct(s); err != nil {
@@ -92,6 +93,7 @@ func (v *Validation) ValidateStruct(s interface{}) error {
 	return nil
 }
 
+// ValidateVar validates a variable using the validator and the translator.
 func (v *Validation) ValidateVar(field interface{}, tag string) error {
 	var errStr string
 	if err := v.Validator.Var(field, tag); err != nil {

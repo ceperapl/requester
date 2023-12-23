@@ -16,9 +16,14 @@ const (
 )
 
 var (
+	// ErrCreateConnection is an error that indicates a failure to create a connection.
 	ErrCreateConnection = errors.New("coudn't connect to RabbitMQ")
 )
 
+// NewConnection is a function that creates and returns a new connection and a channel to RabbitMQ.
+// It takes a string as an argument, which is the URI of the RabbitMQ server.
+// It returns an amqp.Connection, an amqp.Channel, and an error.
+// It uses the utils.Retry function to retry the connection and channel creation in case of errors.
 func NewConnection(uri string) (*amqp.Connection, *amqp.Channel, error) {
 	var conn *amqp.Connection
 	var channel *amqp.Channel
@@ -45,6 +50,7 @@ func NewConnection(uri string) (*amqp.Connection, *amqp.Channel, error) {
 	return conn, channel, nil
 }
 
+// CloseConnection is a function that closes the connection and the channel to RabbitMQ.
 func CloseConnection(conn *amqp.Connection, channel *amqp.Channel) error {
 	if err := channel.Close(); err != nil {
 		return errors.Join(ErrCloseWorkQueue, err)

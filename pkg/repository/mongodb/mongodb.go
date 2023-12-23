@@ -13,16 +13,25 @@ import (
 )
 
 const (
+	// connectTimeout is the duration to wait for a connection to MongoDB.
 	connectTimeout = 1 * time.Second
-	retryInterval  = time.Second
-	attemptsCount  = 30
+	// retryInterval is the duration to wait between retries of connecting to MongoDB.
+	retryInterval = time.Second
+	// attemptsCount is the maximum number of attempts to connect to MongoDB.
+	attemptsCount = 30
 )
 
 var (
-	ErrCreateClient    = errors.New("couldn't create MongoDB client")
+	// ErrCreateClient is an error that indicates a failure to create a MongoDB client.
+	ErrCreateClient = errors.New("couldn't create MongoDB client")
+
+	// ErrCloseConnection is an error that indicates a failure to close a MongoDB connection.
 	ErrCloseConnection = errors.New("couldn't close MongoDB connection")
 )
 
+// NewClient creates and returns a new MongoDB client with the given URI.
+// It retries to connect to MongoDB with the specified interval and number of attempts.
+// It returns an error if it fails to create the client or connect to MongoDB.
 func NewClient(uri string) (*mongo.Client, error) {
 	var client *mongo.Client
 
@@ -54,6 +63,8 @@ func NewClient(uri string) (*mongo.Client, error) {
 	return client, nil
 }
 
+// Close closes the MongoDB connection for the given client.
+// It returns an error if it fails to disconnect the client.
 func Close(ctx context.Context, client *mongo.Client) error {
 	if err := client.Disconnect(ctx); err != nil {
 		return errors.Join(ErrCloseConnection, err)

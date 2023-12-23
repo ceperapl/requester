@@ -13,14 +13,21 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var (
-	ErrCreateTaskHandler = errors.New("failed to create task handler")
-	ErrJSONUnmarshal     = errors.New("couldn't unmarshal json")
-	ErrJSONMarshal       = errors.New("couldn't marshal json")
-)
+// ErrCreateTaskHandler is an error that indicates a failure to create a task handler.
+var ErrCreateTaskHandler = errors.New("failed to create task handler")
 
+// ErrJSONUnmarshal is an error that indicates a failure to unmarshal JSON data.
+var ErrJSONUnmarshal = errors.New("couldn't unmarshal json")
+
+// ErrJSONMarshal is an error that indicates a failure to marshal JSON data.
+var ErrJSONMarshal = errors.New("couldn't marshal json")
+
+// handlerFuncWithError is a function type that handles HTTP requests and returns an error if any.
 type handlerFuncWithError func(http.ResponseWriter, *http.Request) error
 
+// Handle registers the HTTP handlers for the task service using the given mux router.
+// It creates a new validator and a new task handler and sets up the subrouter for the API endpoints.
+// It returns an error if it fails to create the validator or the task handler.
 func Handle(mux *mux.Router, taskService usecase.TaskUsecaser) error {
 	valid, err := validator.New(
 		validator.WithJSONNamesForStructFields(),
