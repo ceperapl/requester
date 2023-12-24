@@ -1,6 +1,6 @@
 module github.com/ceperapl/requester
 
-go 1.21
+go 1.20
 
 require (
 	github.com/go-playground/locales v0.14.1
@@ -44,6 +44,7 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect

@@ -106,7 +106,7 @@ func TestExecuteTask(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			taskResult, err := taskExecutor.ExecuteTask(context.TODO(), &tt.task)
+			taskResult, err := taskExecutor.ExecuteTask(context.TODO(), tt.task)
 			if tt.err != nil {
 				require.ErrorIs(t, err, tt.err)
 			} else {

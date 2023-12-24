@@ -62,7 +62,7 @@ func (t *taskHandler) CreateTaskEndpoint(ctx context.Context) handlerFuncWithErr
 			return err
 		}
 
-		taskID, err := t.usecase.CreateTask(ctx, task)
+		taskID, err := t.usecase.CreateTask(ctx, *task)
 		if err != nil {
 			//nolint: wrapcheck
 			return err

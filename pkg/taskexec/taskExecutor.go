@@ -30,7 +30,7 @@ var (
 // TaskExecutor is an interface that defines the ExecuteTask method,
 // which takes a context and a task as arguments and returns a task result or an error.
 type TaskExecutor interface {
-	ExecuteTask(ctx context.Context, task *domain.Task) (*domain.TaskResult, error)
+	ExecuteTask(ctx context.Context, task domain.Task) (*domain.TaskResult, error)
 }
 
 // TaskExecution is a struct that implements the TaskExecutor interface.
@@ -54,7 +54,7 @@ func NewTaskExecution() *TaskExecution {
 // ExecuteTask creates a new HTTP request with the given method, url, body and headers,
 // sends it using the HTTPClient field, reads and closes the response body,
 // and creates a new task result with the relevant data.
-func (te *TaskExecution) ExecuteTask(ctx context.Context, task *domain.Task) (*domain.TaskResult, error) {
+func (te *TaskExecution) ExecuteTask(ctx context.Context, task domain.Task) (*domain.TaskResult, error) {
 	// Create a new http.Request with the given method, url, body and headers
 	req, err := http.NewRequestWithContext(ctx, task.Method, task.URL, strings.NewReader(task.Body))
 	if err != nil {

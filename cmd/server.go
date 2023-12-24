@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -18,6 +17,7 @@ import (
 	"github.com/ceperapl/requester/pkg/mq"
 	"github.com/ceperapl/requester/pkg/mq/rabbitmq"
 	"github.com/ceperapl/requester/pkg/repository/mongodb"
+	"github.com/ceperapl/requester/pkg/taskexec"
 	"github.com/ceperapl/requester/pkg/usecase"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -43,7 +43,6 @@ func RunServer() error {
 
 	logging.LogInit(config.Debug)
 
-	log.Info().Msg("connecting to MongoDB...")
 	mongoDBClient, err := mongodb.NewClient(config.MongoDB.URI)
 	if err != nil {
 		return fmt.Errorf("couldn't connect to MongoDB: %w", err)
@@ -51,7 +50,6 @@ func RunServer() error {
 	defer mongodb.Close(context.Background(), mongoDBClient)
 	taskRepo := mongodb.NewTaskRepo(mongoDBClient, config.MongoDB.Database, config.MongoDB.Collection)
 
-	log.Info().Msg("connecting to RabbitMQ...")
 	rabbitMQConn, rabbitMQChannel, err := rabbitmq.NewConnection(config.RabbitMQ.URI)
 	if err != nil {
 		return fmt.Errorf("couldn't connect to RabbitMQ: %w", err)
@@ -63,7 +61,7 @@ func RunServer() error {
 		return fmt.Errorf("couldn't create work queue: %w", err)
 	}
 
-	taskService := usecase.NewTaskService(taskRepo, workQueue)
+	taskService := usecase.NewTaskService(taskRepo, workQueue, taskexec.NewTaskExecution())
 
 	rootMux := mux.NewRouter()
 	if err := deliveryhttp.Handle(rootMux, taskService); err != nil {
@@ -111,20 +109,17 @@ func RunServer() error {
 	return nil
 }
 
-func runWorkers(workersCount int, doneC chan<- error, mq mq.WorkQueuer, taskService usecase.TaskUsecaser) {
+func runWorkers(workersCount int, doneC chan<- error, mq mq.TaskQueuer, taskService usecase.TaskUsecaser) {
 	for i := 1; i <= workersCount; i++ {
 		go func(workerNumber int) {
-			err := mq.Consume(context.Background(), func(msg string) {
-				log.Debug().Msg(fmt.Sprintf("Worker #%d/%d is processing task: %s", workerNumber, workersCount, msg))
-				var task domain.Task
-				//nolint: errcheck
-				json.Unmarshal([]byte(msg), &task)
-				if err := taskService.ProcessTask(context.Background(), &task); err != nil {
-					log.Debug().Msg(fmt.Sprintf("Worker #%d/%d failed to process task: %s", workerNumber, workersCount, msg))
+			err := mq.Consume(context.Background(), func(task domain.Task) {
+				log.Debug().Msg(fmt.Sprintf("Worker #%d/%d is processing task with id: %q", workerNumber, workersCount, task.ID))
+				if _, err := taskService.ProcessTask(context.Background(), task); err != nil {
+					log.Debug().Msg(fmt.Sprintf("Worker #%d/%d failed to process task with id: %q", workerNumber, workersCount, task.ID))
 
 					return
 				}
-				log.Debug().Msg(fmt.Sprintf("Worker #%d/%d successfully processed task: %s", workerNumber, workersCount, msg))
+				log.Debug().Msg(fmt.Sprintf("Worker #%d/%d successfully processed task with id: %q", workerNumber, workersCount, task.ID))
 			})
 			if err != nil {
 				doneC <- err
@@ -140,7 +135,6 @@ func gracefulShutdown(timeout time.Duration, httpServer *http.Server, rabbitMQCo
 		os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigChan
-		log.Info().Msg("graceful shutdown")
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()

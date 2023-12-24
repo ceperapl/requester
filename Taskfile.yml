@@ -35,16 +35,17 @@ tasks:
 
   build:
     desc: Builds the service
-    deps: [generate]
     cmds:
       - CGO_ENABLED=0 go build -a -o {{.BINARY_PATH}} .
 
   test:
     desc: Checks and tests the service
+    deps: [generate]
     cmds:
       - cmd: go test -coverprofile=coverage.out ./...
 
   coverage:
     desc: Open test coverage html
+    deps: [test]
     cmds:
       - cmd: go tool cover -html=coverage.out

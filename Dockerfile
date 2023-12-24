@@ -1,5 +1,5 @@
 # build the server binary
-FROM golang:1.21-alpine AS base-builder
+FROM golang:1.20-alpine AS base-builder
 WORKDIR /go/src/github.com/ceperapl/requester
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o bin/server -tags release

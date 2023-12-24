@@ -12,11 +12,11 @@ import (
 
 var (
 	// ErrCreateTaskResult is an error that indicates a failure to create a task result in MongoDB.
-	ErrCreateTaskResult = errors.New("couldn't create task result")
+	ErrCreateTaskResult = errors.New("couldn't create task result in repository")
 	// ErrUpdateTaskResult is an error that indicates a failure to update a task result in MongoDB.
-	ErrUpdateTaskResult = errors.New("couldn't update task result")
+	ErrUpdateTaskResult = errors.New("couldn't update task result in repository")
 	// ErrGetTaskResult is an error that indicates a failure to get a task result from MongoDB.
-	ErrGetTaskResult = errors.New("couldn't get task result")
+	ErrGetTaskResult = errors.New("couldn't get task result from repository")
 )
 
 // TaskRepo is a struct that implements the repository.TaskRepository interface using MongoDB as the storage.

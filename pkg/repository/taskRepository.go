@@ -16,5 +16,5 @@ var (
 type TaskRepository interface {
 	CreateTaskResult(ctx context.Context, taskResult *domain.TaskResult) error
 	UpdateTaskResult(ctx context.Context, taskResult *domain.TaskResult) error
-	GetTaskResult(ctx context.Context, id string) (*domain.TaskResult, error)
+	GetTaskResult(ctx context.Context, taskID string) (*domain.TaskResult, error)
 }
