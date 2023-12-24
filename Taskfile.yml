@@ -36,7 +36,7 @@ tasks:
   build:
     desc: Builds the service
     cmds:
-      - CGO_ENABLED=0 go build -a -o {{.BINARY_PATH}} .
+      - CGO_ENABLED=1 go build -race -a -o {{.BINARY_PATH}} .
 
   test:
     desc: Checks and tests the service

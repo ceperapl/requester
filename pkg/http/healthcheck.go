@@ -8,14 +8,6 @@ import (
 // Check is a function type that performs a health check and returns an error if any.
 type Check func() error
 
-// HealthChecker is the interface that wraps the methods for health checks.
-type HealthChecker interface {
-	AddLivenessChecks(check Check)
-	AddReadinessChecks(check Check)
-	LivenessHandler() http.HandlerFunc
-	ReadinessHandler() http.HandlerFunc
-}
-
 // NewHealthChecker creates and returns a new HealthCheck instance.
 func NewHealthChecker() *HealthCheck {
 	return &HealthCheck{}
