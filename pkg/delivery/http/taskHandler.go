@@ -22,9 +22,6 @@ var ErrJSONUnmarshal = errors.New("couldn't unmarshal json")
 // ErrJSONMarshal is an error that indicates a failure to marshal JSON data.
 var ErrJSONMarshal = errors.New("couldn't marshal json")
 
-// handlerFuncWithError is a function type that handles HTTP requests and returns an error if any.
-type handlerFuncWithError func(http.ResponseWriter, *http.Request) error
-
 // Handle registers the HTTP handlers for the task service using the given mux router.
 // It creates a new validator and a new task handler and sets up the subrouter for the API endpoints.
 // It returns an error if it fails to create the validator or the task handler.
@@ -44,8 +41,8 @@ func Handle(mux *mux.Router, taskService usecase.TaskUsecaser) error {
 	subRouter := mux.PathPrefix("/api/v1").Subrouter()
 	ctx := context.Background()
 
-	subRouter.Handle("/task", logEndpoint(errorHandler(handler.CreateTaskEndpoint(ctx)))).Methods(http.MethodPost)
-	subRouter.Handle("/task/{id}", logEndpoint(errorHandler(handler.GetTaskResultEndpoint(ctx)))).Methods(http.MethodGet)
+	subRouter.Handle("/task", logEndpoint(ErrorHandler(handler.CreateTaskEndpoint(ctx)))).Methods(http.MethodPost)
+	subRouter.Handle("/task/{id}", logEndpoint(ErrorHandler(handler.GetTaskResultEndpoint(ctx)))).Methods(http.MethodGet)
 
 	return nil
 }
@@ -55,7 +52,7 @@ type taskHandler struct {
 	validator validator.Validation
 }
 
-func (t *taskHandler) CreateTaskEndpoint(ctx context.Context) handlerFuncWithError {
+func (t *taskHandler) CreateTaskEndpoint(ctx context.Context) HandlerFuncWithError {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		task, err := t.decodeCreateTaskEndpointReq(r)
 		if err != nil {
@@ -100,7 +97,7 @@ func (t *taskHandler) encodeCreateTaskEndpointResp(w http.ResponseWriter, taskID
 	return nil
 }
 
-func (t *taskHandler) GetTaskResultEndpoint(ctx context.Context) handlerFuncWithError {
+func (t *taskHandler) GetTaskResultEndpoint(ctx context.Context) HandlerFuncWithError {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		taskID, err := t.decodeGetTaskResultEndpointReq(r)
 		if err != nil {

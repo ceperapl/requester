@@ -10,6 +10,9 @@ import (
 	"github.com/ceperapl/requester/pkg/validator"
 )
 
+// HandlerFuncWithError is a function type that handles HTTP requests and returns an error if any.
+type HandlerFuncWithError func(http.ResponseWriter, *http.Request) error
+
 // ErrorInfo represents the error information returned by the HTTP handler.
 // It contains the error message and the HTTP status code.
 type ErrorInfo struct {
@@ -17,9 +20,9 @@ type ErrorInfo struct {
 	StatusCode int    `json:"httpStatusCode"`
 }
 
-// errorHandler is a wrapper function that handles errors returned by the HTTP handler.
+// ErrorHandler is a wrapper function that handles errors returned by the HTTP handler.
 // It writes the error information as JSON to the response writer and sets the appropriate status code.
-func errorHandler(handler handlerFuncWithError) http.Handler {
+func ErrorHandler(handler HandlerFuncWithError) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := handler(w, r)
 		if err == nil {
