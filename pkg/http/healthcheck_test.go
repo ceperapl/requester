@@ -1,26 +1,31 @@
-package http
+package http_test
 
 import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	httpstuff "github.com/ceperapl/requester/pkg/http"
 )
 
-// TestLivenessHandler tests the LivenessHandler method with different scenarios
+var errCheck = errors.New("check error")
+
+//nolint: dupl
 func TestLivenessHandler(t *testing.T) {
+	t.Parallel()
 	// Define a test case struct
 	type testCase struct {
-		name       string  // The name of the test case
-		checks     []Check // The checks to pass to the AddLivenessChecks method
-		wantStatus int     // The expected HTTP status code
+		name       string            // The name of the test case
+		checks     []httpstuff.Check // The checks to pass to the AddLivenessChecks method
+		wantStatus int               // The expected HTTP status code
 	}
 
 	// Define some test cases
 	testCases := []testCase{
 		{
 			name: "All checks pass",
-			checks: []Check{
+			checks: []httpstuff.Check{
 				func() error { return nil },
 				func() error { return nil },
 			},
@@ -28,9 +33,9 @@ func TestLivenessHandler(t *testing.T) {
 		},
 		{
 			name: "One check fails",
-			checks: []Check{
+			checks: []httpstuff.Check{
 				func() error { return nil },
-				func() error { return errors.New("check error") },
+				func() error { return errCheck },
 			},
 			wantStatus: http.StatusServiceUnavailable,
 		},
@@ -43,10 +48,12 @@ func TestLivenessHandler(t *testing.T) {
 
 	// Iterate over the test cases
 	for _, tc := range testCases {
+		tc := tc
 		// Run each test case as a subtest
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			// Create a new health check instance
-			hc := NewHealthChecker()
+			hc := httpstuff.NewHealthChecker()
 			// Add the test case checks to the health check instance
 			for _, check := range tc.checks {
 				hc.AddLivenessChecks(check)
@@ -64,20 +71,21 @@ func TestLivenessHandler(t *testing.T) {
 	}
 }
 
-// TestReadinessHandler tests the ReadinessHandler method with different scenarios
+//nolint: dupl
 func TestReadinessHandler(t *testing.T) {
+	t.Parallel()
 	// Define a test case struct
 	type testCase struct {
-		name       string  // The name of the test case
-		checks     []Check // The checks to pass to the AddReadinessChecks method
-		wantStatus int     // The expected HTTP status code
+		name       string            // The name of the test case
+		checks     []httpstuff.Check // The checks to pass to the AddReadinessChecks method
+		wantStatus int               // The expected HTTP status code
 	}
 
 	// Define some test cases
 	testCases := []testCase{
 		{
 			name: "All checks pass",
-			checks: []Check{
+			checks: []httpstuff.Check{
 				func() error { return nil },
 				func() error { return nil },
 			},
@@ -85,9 +93,9 @@ func TestReadinessHandler(t *testing.T) {
 		},
 		{
 			name: "One check fails",
-			checks: []Check{
+			checks: []httpstuff.Check{
 				func() error { return nil },
-				func() error { return errors.New("check error") },
+				func() error { return errCheck },
 			},
 			wantStatus: http.StatusServiceUnavailable,
 		},
@@ -100,10 +108,12 @@ func TestReadinessHandler(t *testing.T) {
 
 	// Iterate over the test cases
 	for _, tc := range testCases {
+		tc := tc
 		// Run each test case as a subtest
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			// Create a new health check instance
-			hc := NewHealthChecker()
+			hc := httpstuff.NewHealthChecker()
 			// Add the test case checks to the health check instance
 			for _, check := range tc.checks {
 				hc.AddReadinessChecks(check)

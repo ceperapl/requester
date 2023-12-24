@@ -42,7 +42,7 @@ tasks:
     desc: Checks and tests the service
     deps: [generate]
     cmds:
-      - cmd: go test -coverprofile=coverage.out ./...
+      - cmd: go test -race -coverprofile=coverage.out ./...
 
   coverage:
     desc: Open test coverage html
