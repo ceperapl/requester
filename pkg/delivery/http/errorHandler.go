@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/ceperapl/requester/pkg/repository"
-	"github.com/ceperapl/requester/pkg/validator"
 )
 
 // HandlerFuncWithError is a function type that handles HTTP requests and returns an error if any.
@@ -43,7 +42,7 @@ func ErrorHandler(handler HandlerFuncWithError) http.Handler {
 // It uses the errors.Is function to check for specific errors and returns the appropriate code.
 func statusCodeByError(err error) int {
 	switch {
-	case errors.Is(err, ErrJSONUnmarshal), errors.Is(err, validator.ErrValidation):
+	case errors.Is(err, ErrJSONUnmarshal), errors.Is(err, ErrReqValidation):
 		return http.StatusBadRequest
 	case errors.Is(err, repository.ErrTaskNotFound):
 		return http.StatusNotFound

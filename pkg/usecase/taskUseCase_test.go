@@ -110,8 +110,8 @@ func TestCreateTask(t *testing.T) {
 		// Run each test case as a subtest
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// Create a new task service with the mock repository and queue
-			ts := usecase.NewTaskService(tc.mockRepo(), tc.mockQueue(), nil)
+			// Create a new task use case with the mock repository and queue
+			ts := usecase.NewTaskUseCase(tc.mockRepo(), tc.mockQueue(), nil)
 			// Call the CreateTask method with the test case task
 			id, err := ts.CreateTask(context.TODO(), tc.task)
 			// Check if the error matches the expectation
@@ -196,8 +196,8 @@ func TestGetTaskResult(t *testing.T) {
 		// Run each test case as a subtest
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// Create a new task service with the mock repository and queue
-			ts := usecase.NewTaskService(tc.mockRepo(), nil, nil)
+			// Create a new task use case with the mock repository and queue
+			ts := usecase.NewTaskUseCase(tc.mockRepo(), nil, nil)
 			// Call the GetTaskResult method with the test case task id
 			taskResult, err := ts.GetTaskResult(context.TODO(), tc.taskID)
 			// Check if the error matches the expectation
@@ -349,8 +349,8 @@ func TestProcessTask(t *testing.T) {
 		// Run each test case as a subtest
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// Create a new task service with the mock repository and queue
-			ts := usecase.NewTaskService(tc.mockRepo(), nil, tc.mockTaskExec())
+			// Create a new task use case with the mock repository and queue
+			ts := usecase.NewTaskUseCase(tc.mockRepo(), nil, tc.mockTaskExec())
 			// Call the ProcessTask method with the test case task
 			taskResult, err := ts.ProcessTask(context.TODO(), tc.task)
 			// Check if the error matches the expectation

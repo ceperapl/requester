@@ -19,6 +19,7 @@ import (
 	"github.com/ceperapl/requester/pkg/repository/mongodb"
 	"github.com/ceperapl/requester/pkg/taskexec"
 	"github.com/ceperapl/requester/pkg/usecase"
+	"github.com/ceperapl/requester/pkg/validator"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -61,10 +62,15 @@ func RunServer() error {
 		return fmt.Errorf("couldn't create work queue: %w", err)
 	}
 
-	taskService := usecase.NewTaskService(taskRepo, workQueue, taskexec.NewTaskExecution())
+	taskUseCase := usecase.NewTaskUseCase(taskRepo, workQueue, taskexec.NewTaskExecution())
+
+	valid, err := validator.New(validator.WithJSONNamesForStructFields())
+	if err != nil {
+		return fmt.Errorf("couldn't create validator: %w", err)
+	}
 
 	rootMux := mux.NewRouter()
-	if err := deliveryhttp.Handle(rootMux, taskService); err != nil {
+	if err := deliveryhttp.Handle(rootMux, taskUseCase, valid); err != nil {
 		//nolint: wrapcheck
 		return err
 	}
@@ -82,7 +88,7 @@ func RunServer() error {
 	httpSrv := &http.Server{
 		Addr:              httpServerAddr,
 		Handler:           rootMux,
-		ReadHeaderTimeout: readHeaderTimeout,
+		ReadHeaderTimeout: readHeaderTimeout, // to prevent DDoS attack called Slowloris attack
 	}
 
 	// channel for receiving errors from all goroutines
@@ -97,7 +103,7 @@ func RunServer() error {
 	}()
 
 	log.Info().Msg(fmt.Sprintf("start task processing; workers = %d", config.WorkersCount))
-	runWorkers(config.WorkersCount, doneC, workQueue, taskService)
+	runWorkers(config.WorkersCount, doneC, workQueue, taskUseCase)
 
 	go gracefulShutdown(gracefulShutdownTimeout, httpSrv, rabbitMQConn, rabbitMQChannel, mongoDBClient)
 
@@ -109,12 +115,12 @@ func RunServer() error {
 	return nil
 }
 
-func runWorkers(workersCount int, doneC chan<- error, mq mq.TaskQueuer, taskService usecase.TaskUsecaser) {
+func runWorkers(workersCount int, doneC chan<- error, mq mq.TaskQueuer, taskUseCase usecase.TaskUsecaser) {
 	for i := 1; i <= workersCount; i++ {
 		go func(workerNumber int) {
 			err := mq.Consume(context.Background(), func(task domain.Task) {
 				log.Debug().Msg(fmt.Sprintf("Worker #%d/%d is processing task with id: %q", workerNumber, workersCount, task.ID))
-				if _, err := taskService.ProcessTask(context.Background(), task); err != nil {
+				if _, err := taskUseCase.ProcessTask(context.Background(), task); err != nil {
 					log.Debug().Msg(fmt.Sprintf("Worker #%d/%d failed to process task with id: %q", workerNumber, workersCount, task.ID))
 
 					return

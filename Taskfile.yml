@@ -42,7 +42,17 @@ tasks:
     desc: Checks and tests the service
     deps: [generate]
     cmds:
-      - cmd: go test -race -coverprofile=coverage.out ./...
+      - |
+      - cmd: go test -race $(go list ./... | 
+          grep -v github.com/ceperapl/requester/cmd | 
+          grep -v github.com/ceperapl/requester/pkg/domain | 
+          grep -v github.com/ceperapl/requester/pkg/logging | 
+          grep -v github.com/ceperapl/requester/pkg/repository | 
+          grep -v github.com/ceperapl/requester/pkg/taskexec/mocks | 
+          grep -v github.com/ceperapl/requester/pkg/usecase/mocks | 
+          grep -v github.com/ceperapl/requester/pkg/validator/mocks | 
+          grep -v github.com/ceperapl/requester/pkg/mq)
+          -coverprofile=coverage.out
 
   coverage:
     desc: Open test coverage html

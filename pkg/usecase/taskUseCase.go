@@ -22,18 +22,18 @@ type TaskUsecaser interface {
 	ProcessTask(ctx context.Context, task domain.Task) (*domain.TaskResult, error)
 }
 
-// NewTaskService creates and returns a new TaskService instance.
-func NewTaskService(repos repository.TaskRepository, mq mq.TaskQueuer, taskExec taskexec.TaskExecutor) *TaskService {
-	return &TaskService{
+// NewTaskUseCase creates and returns a new TaskUseCase instance.
+func NewTaskUseCase(repos repository.TaskRepository, mq mq.TaskQueuer, taskExec taskexec.TaskExecutor) *TaskUseCase {
+	return &TaskUseCase{
 		repos:        repos,
 		taskQueue:    mq,
 		taskExecutor: taskExec,
 	}
 }
 
-// TaskService is a struct that implements the TaskUsecaser interface.
+// TaskUseCase is a struct that implements the TaskUsecaser interface.
 // It uses a task repository and a work queue to manage tasks and their results.
-type TaskService struct {
+type TaskUseCase struct {
 	repos        repository.TaskRepository
 	taskQueue    mq.TaskQueuer
 	taskExecutor taskexec.TaskExecutor
@@ -43,7 +43,7 @@ type TaskService struct {
 // It generates a unique ID for the task, creates a new task result with status "new", saves it to the task repository,
 // and publishes the task to the work queue.
 // It returns an error if it fails to marshal the task, save the task result, or publish the task.
-func (ts *TaskService) CreateTask(ctx context.Context, task domain.Task) (string, error) {
+func (ts *TaskUseCase) CreateTask(ctx context.Context, task domain.Task) (string, error) {
 	task.ID = uuid.NewV4().String()
 
 	taskResult := domain.TaskResult{
@@ -64,7 +64,7 @@ func (ts *TaskService) CreateTask(ctx context.Context, task domain.Task) (string
 // GetTaskResult returns the task result for the given ID.
 // It retrieves the task result from the task repository and returns it.
 // It returns an error if it fails to get the task result from the repository.
-func (ts *TaskService) GetTaskResult(ctx context.Context, taskID string) (*domain.TaskResult, error) {
+func (ts *TaskUseCase) GetTaskResult(ctx context.Context, taskID string) (*domain.TaskResult, error) {
 	// get task result from MongoDB
 	taskResult, err := ts.repos.GetTaskResult(ctx, taskID)
 	if err != nil {
@@ -76,7 +76,7 @@ func (ts *TaskService) GetTaskResult(ctx context.Context, taskID string) (*domai
 
 // ProcessTask executes the task and updates its result.
 //nolint: nonamedreturns
-func (ts *TaskService) ProcessTask(ctx context.Context, task domain.Task) (taskResult *domain.TaskResult, err error) {
+func (ts *TaskUseCase) ProcessTask(ctx context.Context, task domain.Task) (taskResult *domain.TaskResult, err error) {
 	taskResult = &domain.TaskResult{TaskID: task.ID, Status: domain.TaskInProgress}
 	// update task result in MongoDB
 	if updateErr := ts.repos.UpdateTaskResult(ctx, taskResult); updateErr != nil {

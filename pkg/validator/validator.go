@@ -18,6 +18,13 @@ var (
 	ErrValidation         = errors.New("validation error")
 )
 
+// Validator is an interface that defines the methods for validating data.
+// It can validate structs or variables using validation tags.
+type Validator interface {
+	ValidateStruct(s interface{}) error
+	ValidateVar(field interface{}, tag string) error
+}
+
 // Validation is a type that encapsulates a validator.
 type Validation struct {
 	Validator  *valid.Validate
