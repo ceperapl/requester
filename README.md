@@ -21,11 +21,11 @@ The general scheme of interaction is shown in the diagram below:
 
 ## Prerequisites
 
-golang (go1.20.12)
-docker (24.0.7)
-docker-compose (v2.15.0)
-taskfile (v3.22.0)
-mockery (v2.39.1)
+- golang (go1.20.12)
+- docker (24.0.7)
+- docker-compose (v2.15.0)
+- taskfile (v3.22.0)
+- mockery (v2.39.1)
 
 ## Run in Docker Compose
 
