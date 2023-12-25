@@ -18,6 +18,7 @@ import (
 )
 
 var errUseCase = errors.New("usecase error")
+var errValidation = errors.New("some validation error")
 
 //nolint: funlen
 func TestCreateTaskEndpoint(t *testing.T) {
@@ -62,12 +63,12 @@ func TestCreateTaskEndpoint(t *testing.T) {
 			},
 			mockValidator: func() *valid_mocks.Validator {
 				valid := &valid_mocks.Validator{}
-				valid.On("ValidateStruct", mock.Anything).Return(deliveryhttp.ErrReqValidation)
+				valid.On("ValidateStruct", mock.Anything).Return(errValidation)
 
 				return valid
 			},
 			respStatus: http.StatusBadRequest,
-			respBody:   `{"error":"couldn't decode request: request validation error","httpStatusCode":400}`,
+			respBody:   `{"error":"couldn't decode request: request validation error\nsome validation error","httpStatusCode":400}`,
 		},
 		{
 			name:        "Error from usecase",
@@ -188,12 +189,12 @@ func TestGetTaskResultEndpoint(t *testing.T) {
 			},
 			mockValidator: func() *valid_mocks.Validator {
 				valid := &valid_mocks.Validator{}
-				valid.On("ValidateVar", mock.Anything, mock.Anything).Return(deliveryhttp.ErrReqValidation)
+				valid.On("ValidateVar", mock.Anything, mock.Anything).Return(errValidation)
 
 				return valid
 			},
 			respStatus: http.StatusBadRequest,
-			respBody:   `{"error":"couldn't decode request: request validation error","httpStatusCode":400}`,
+			respBody:   `{"error":"couldn't decode request: request validation error\nsome validation error","httpStatusCode":400}`,
 		},
 		{
 			name: "Error from usecase",

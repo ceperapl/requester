@@ -76,8 +76,7 @@ func (t *TaskHandler) decodeCreateTaskEndpointReq(req *http.Request) (*domain.Ta
 	defer req.Body.Close()
 
 	if err := t.Validator.ValidateStruct(task); err != nil {
-		//nolint: wrapcheck
-		return nil, err
+		return nil, errors.Join(ErrReqValidation, err)
 	}
 
 	return task, nil
@@ -117,8 +116,7 @@ func (t *TaskHandler) decodeGetTaskResultEndpointReq(req *http.Request) (string,
 	id := mux.Vars(req)["id"]
 
 	if err := t.Validator.ValidateVar(id, "uuid4"); err != nil {
-		//nolint: wrapcheck
-		return "", err
+		return "", errors.Join(ErrReqValidation, err)
 	}
 
 	return id, nil
