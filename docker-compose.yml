@@ -20,7 +20,7 @@ services:
       - 5672:5672
       - 15672:15672
 
-  requester:
+  requester1:
     image: requester:dev
     build:
       context: .
@@ -32,6 +32,23 @@ services:
       - mq
     ports:
       - 8080:8080
+    environment:
+      - REQUESTER_MONGODB_URI=mongodb://admin:password@db:27017
+      - REQUESTER_RABBITMQ_URI=amqp://guest:guest@mq:5672/
+      - REQUESTER_DEBUG=true
+
+  requester2:
+    image: requester:dev
+    build:
+      context: .
+      dockerfile: "./Dockerfile"
+    networks:
+      - requester
+    depends_on:
+      - db
+      - mq
+    ports:
+      - 8081:8080
     environment:
       - REQUESTER_MONGODB_URI=mongodb://admin:password@db:27017
       - REQUESTER_RABBITMQ_URI=amqp://guest:guest@mq:5672/

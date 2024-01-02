@@ -50,14 +50,14 @@ This endpoint accepts a JSON payload with the task details and returns a task ID
 **Successful case:**
 
 ```bash
-curl -s -d '{"method":"GET", "url":"https://httpbin.org/get", "headers": {"User-Agent": ["Bing"]}}' -H "Content-Type: application/json" -X POST http://localhost:8080/api/v1/task | jq
+curl -s -d '{"method":"GET", "url":"https://httpbin.org/delay/7", "headers": {"User-Agent": ["Bing"]}}' -H "Content-Type: application/json" -X POST http://localhost:8080/api/v1/task | jq
 # Output:
 {
   "id": "a79743e5-14cf-4406-b30e-2bfcb98556e7"
 }
 ```
 
-**Ban input:**
+**Bad input:**
 
 ```bash
 curl -s -d '{"method":"Invalid", "url":"https://httpbin.org/get", "headers": {"User-Agent": ["Bing"]}}' -H "Content-Type: application/json" -X POST http://localhost:8080/api/v1/task | jq
